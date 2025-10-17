@@ -25,6 +25,7 @@ HTML_TEMPLATE = '''
     <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet">
     <script src="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.css" type="text/css">
+    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -119,110 +120,134 @@ HTML_TEMPLATE = '''
         });
 
         const draw = new MapboxDraw({
-            displayControlsDefault: false,
+            displayControlsDefault: true,
             controls: {
                 polygon: true,
                 trash: true
             },
-            defaultMode: 'draw_polygon'
-        });
-        
-        map.addControl(draw, 'top-left');
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
-        map.addControl(new maplibregl.FullscreenControl(), 'top-right');
-        map.addControl(new maplibregl.GeolocateControl({
-            positionOptions: {
-                enableHighAccuracy: true
-            },
-            trackUserLocation: true
-        }), 'top-right');
-
-        // Set default date to today
-        const today = new Date();
-        document.getElementById('target-date').valueAsDate = today;
-
-        let currentPolygon = null;
-
-        map.on('draw.create', updateArea);
-        map.on('draw.delete', updateArea);
-        map.on('draw.update', updateArea);
-
-        function updateArea(e) {
-            const data = draw.getAll();
-            const answer = document.getElementById('calculated-area');
-            const ndviButton = document.getElementById('calculate-ndvi');
-            const ndviResult = document.getElementById('ndvi-result');
-            
-            if (data.features.length > 0) {
-                currentPolygon = data.features[0];
-                const area = turf.area(data);
-                const rounded_area = Math.round(area * 100) / 100;
-                answer.innerHTML = `<p>Area: <strong>${rounded_area}</strong> m²</p>`;
-                ndviButton.disabled = false;
-                ndviResult.innerHTML = '';
-            } else {
-                currentPolygon = null;
-                answer.innerHTML = '';
-                ndviButton.disabled = true;
-                ndviResult.innerHTML = '';
-            }
-        }
-
-        document.getElementById('calculate-ndvi').addEventListener('click', async function() {
-            if (!currentPolygon) return;
-            
-            const ndviResult = document.getElementById('ndvi-result');
-            const button = this;
-            const targetDate = document.getElementById('target-date').value;
-            
-            if (!targetDate) {
-                ndviResult.innerHTML = '<p class="error">Please select a date</p>';
-                return;
-            }
-            
-            button.disabled = true;
-            ndviResult.innerHTML = '<p class="loading">Finding closest MODIS data...</p>';
-            
-            try {
-                const response = await fetch('/calculate-ndvi', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        geometry: currentPolygon.geometry,
-                        target_date: targetDate
-                    })
-                });
-                
-                const data = await response.json();
-                
-                if (data.error) {
-                    ndviResult.innerHTML = `<p class="error">Error: ${data.error}</p>`;
-                } else {
-                    const ndviValue = data.ndvi.toFixed(4);
-                    const date = data.date;
-                    const daysDiff = data.days_difference;
-                    ndviResult.innerHTML = `
-                        <p class="success"><strong>NDVI: ${ndviValue}</strong></p>
-                        <p style="font-size: 0.9em;">Image Date: ${date}</p>
-                        <p style="font-size: 0.85em; color: #666;">
-                            ${daysDiff === 0 ? 'Exact match' : `${Math.abs(daysDiff)} day${Math.abs(daysDiff) > 1 ? 's' : ''} ${daysDiff > 0 ? 'after' : 'before'} target date`}
-                        </p>
-                        <p style="font-size: 0.85em; color: #666;">
-                            MODIS Terra 16-Day NDVI<br>
-                            250m resolution
-                        </p>
-                    `;
+            defaultMode: 'draw_polygon',
+            styles: [
+                // Polygon fill
+                {
+                    'id': 'gl-draw-polygon-fill',
+                    'type': 'fill',
+                    'filter': ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+                    'paint': {
+                        'fill-color': '#FF0000',
+                        'fill-opacity': 0.5
+                    }
+                },
+                {
+                    'id': 'gl-draw-polygon-stroke-active',
+                    'type': 'line',
+                    'filter': ['all', ['==', '$type', 'Polygon'], ['!=', 'mode', 'static']],
+                    'paint': {
+                        'line-color': '#000000',
+                        'line-width': 3
+                    }
                 }
-            } catch (error) {
-                ndviResult.innerHTML = `<p class="error">Error: ${error.message}</p>`;
-            } finally {
-                button.disabled = false;
+            ]
+        });
+
+        map.on('load', function() {
+            console.log('Map loaded successfully');
+            
+            map.addControl(draw, 'top-left');
+            map.addControl(new maplibregl.NavigationControl(), 'top-right');
+            map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+            map.addControl(new maplibregl.GeolocateControl({
+                positionOptions: {
+                    enableHighAccuracy: true
+                },
+                trackUserLocation: true
+            }), 'top-right');
+
+            // Set default date to today
+            const today = new Date();
+            document.getElementById('target-date').valueAsDate = today;
+
+            let currentPolygon = null;
+
+            map.on('draw.create', updateArea);
+            map.on('draw.delete', updateArea);
+            map.on('draw.update', updateArea);
+
+            function updateArea(e) {
+                const data = draw.getAll();
+                const answer = document.getElementById('calculated-area');
+                const ndviButton = document.getElementById('calculate-ndvi');
+                const ndviResult = document.getElementById('ndvi-result');
+                
+                if (data.features.length > 0) {
+                    currentPolygon = data.features[0];
+                    const area = turf.area(data);
+                    const rounded_area = (Math.round(area * 100) / 100000000).toFixed(3);
+                    answer.innerHTML = `<p>Area: <strong>${rounded_area}</strong> km²</p>`;
+                    ndviButton.disabled = false;
+                    ndviResult.innerHTML = '';
+                } else {
+                    currentPolygon = null;
+                    answer.innerHTML = '';
+                    ndviButton.disabled = true;
+                    ndviResult.innerHTML = '';
+                }
             }
+
+            document.getElementById('calculate-ndvi').addEventListener('click', async function() {
+                if (!currentPolygon) return;
+                
+                const ndviResult = document.getElementById('ndvi-result');
+                const button = this;
+                const targetDate = document.getElementById('target-date').value;
+                
+                if (!targetDate) {
+                    ndviResult.innerHTML = '<p class="error">Please select a date</p>';
+                    return;
+                }
+                
+                button.disabled = true;
+                ndviResult.innerHTML = '<p class="loading">Finding closest MODIS data...</p>';
+                
+                try {
+                    const response = await fetch('/calculate-ndvi', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            geometry: currentPolygon.geometry,
+                            target_date: targetDate
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        ndviResult.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                    } else {
+                        const ndviValue = data.ndvi.toFixed(4);
+                        const date = data.date;
+                        const daysDiff = data.days_difference;
+                        ndviResult.innerHTML = `
+                            <p class="success"><strong>NDVI: ${ndviValue}</strong></p>
+                            <p style="font-size: 0.9em;">Image Date: ${date}</p>
+                            <p style="font-size: 0.85em; color: #666;">
+                                ${daysDiff === 0 ? 'Exact match' : `${Math.abs(daysDiff)} day${Math.abs(daysDiff) > 1 ? 's' : ''} ${daysDiff > 0 ? 'after' : 'before'} target date`}
+                            </p>
+                            <p style="font-size: 0.85em; color: #666;">
+                                MODIS Terra 16-Day NDVI<br>
+                                250m resolution
+                            </p>
+                        `;
+                    }
+                } catch (error) {
+                    ndviResult.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                } finally {
+                    button.disabled = false;
+                }
+            });
         });
     </script>
-    <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
 </body>
 </html>
 '''
