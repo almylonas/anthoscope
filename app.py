@@ -476,6 +476,34 @@ def forecast_ndvi():
         logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
+@app.route('/debug/prophet', methods=['GET'])
+def debug_prophet():
+    """Check if Prophet is working"""
+    try:
+        from prophet import Prophet
+        import pandas as pd
+        
+        # Test with simple data
+        df = pd.DataFrame({
+            'ds': pd.date_range('2023-01-01', periods=10, freq='D'),
+            'y': [1, 2, 3, 4, 5, 4, 3, 2, 1, 2]
+        })
+        
+        model = Prophet()
+        model.fit(df)
+        
+        return jsonify({
+            'prophet_working': True,
+            'message': 'Prophet is installed and working correctly'
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'prophet_working': False,
+            'error': str(e),
+            'traceback': traceback.format_exc()
+        })
+
 if __name__ == '__main__':
     print("\n" + "="*50)
     print("🚀 Starting Flask NDVI Application")
