@@ -19,7 +19,7 @@ try:
         credentials_dict = json.loads(ee_key)
         credentials = ee.ServiceAccountCredentials(
             email=credentials_dict['client_email'],
-            key_data=['private_key']
+            key_data=credentials_dict['private_key']
         )
         ee.Initialize(credentials=credentials, project='nsa-agroai')
         print("✓ Earth Engine initialized with service account")
