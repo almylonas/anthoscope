@@ -2,6 +2,12 @@ from flask import Flask, render_template, request, jsonify
 import ee
 import json
 from datetime import datetime, timedelta
+import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -10,32 +16,70 @@ ee_initialized = False
 init_error = None
 
 try:
-    import os
-    
     # Check if running on Railway with service account
     ee_key_json = os.environ.get('EE_SERVICE_ACCOUNT_KEY')
     
     if ee_key_json:
-        # Running on Railway - use service account from environment variable
-        import json
-        credentials_dict = json.loads(ee_key_json)
-        credentials = ee.ServiceAccountCredentials(
-            email=credentials_dict['client_email'],
-            key_data=credentials_dict['private_key']
-        )
-        ee.Initialize(credentials=credentials, project='nsa-agroai')
-        print("✓ Earth Engine initialized with service account")
+        # Method 1: Single JSON environment variable
+        logger.info("Found EE_SERVICE_ACCOUNT_KEY environment variable")
+        
+        try:
+            credentials_dict = json.loads(ee_key_json)
+            logger.info("Successfully parsed service account JSON")
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse EE_SERVICE_ACCOUNT_KEY: {e}")
+            raise Exception(f"Invalid JSON in EE_SERVICE_ACCOUNT_KEY: {e}")
+        
     else:
-        # Running locally - use default credentials
-        ee.Initialize(project='nsa-agroai')
-        print("✓ Earth Engine initialized with local credentials")
+        # Method 2: Individual environment variables
+        logger.info("No EE_SERVICE_ACCOUNT_KEY found, checking individual variables")
+        
+        required_vars = [
+            'type', 'project_id', 'private_key_id', 'private_key',
+            'client_email', 'client_id', 'token_uri'
+        ]
+        
+        missing_vars = [var for var in required_vars if not os.environ.get(var)]
+        
+        if missing_vars:
+            logger.error(f"Missing required environment variables: {missing_vars}")
+            raise Exception(f"Missing required environment variables: {missing_vars}")
+        
+        # Build credentials dictionary from individual variables
+        credentials_dict = {
+            'type': os.environ.get('type'),
+            'project_id': os.environ.get('project_id'),
+            'private_key_id': os.environ.get('private_key_id'),
+            'private_key': os.environ.get('private_key'),
+            'client_email': os.environ.get('client_email'),
+            'client_id': os.environ.get('client_id'),
+            'auth_uri': os.environ.get('auth_uri', 'https://accounts.google.com/o/oauth2/auth'),
+            'token_uri': os.environ.get('token_uri'),
+            'auth_provider_x509_cert_url': os.environ.get('auth_provider_x509_cert_url', 'https://www.googleapis.com/oauth2/v1/certs'),
+            'client_x509_cert_url': os.environ.get('client_x509_cert_url'),
+            'universe_domain': os.environ.get('universe_domain', 'googleapis.com')
+        }
+        logger.info("Built credentials from individual environment variables")
     
+    # Validate required fields
+    required_fields = ['client_email', 'private_key', 'project_id']
+    for field in required_fields:
+        if field not in credentials_dict or not credentials_dict[field]:
+            logger.error(f"Missing required field in service account: {field}")
+            raise Exception(f"Service account missing required field: {field}")
+    
+    # Initialize with service account
+    credentials = ee.ServiceAccountCredentials(
+        email=credentials_dict['client_email'],
+        key_data=credentials_dict['private_key']
+    )
+    ee.Initialize(credentials=credentials, project=credentials_dict['project_id'])
+    logger.info("✓ Earth Engine initialized with service account")
     ee_initialized = True
+        
 except Exception as e:
     init_error = str(e)
-    print(f"✗ Earth Engine initialization error: {e}")
-    print("Local: Run 'earthengine authenticate'")
-    print("Railway: Set EE_SERVICE_ACCOUNT_KEY environment variable")
+    logger.error(f"✗ Earth Engine initialization error: {e}")
     ee_initialized = False
 
 @app.route('/')
@@ -45,31 +89,68 @@ def index():
 @app.route('/health', methods=['GET'])
 def health():
     """Health check endpoint"""
-    return jsonify({
+    # Test EE connectivity
+    ee_test_success = False
+    ee_test_error = None
+    
+    if ee_initialized:
+        try:
+            # Simple test to verify EE is working
+            test_image = ee.Image(1)
+            test_info = test_image.getInfo()
+            ee_test_success = True
+        except Exception as e:
+            ee_test_error = str(e)
+    
+    health_status = {
         'status': 'ok',
         'ee_initialized': ee_initialized,
-        'error': init_error if not ee_initialized else None
-    })
+        'ee_test_success': ee_test_success,
+        'init_error': init_error,
+        'ee_test_error': ee_test_error,
+        'environment': 'railway' if os.environ.get('EE_SERVICE_ACCOUNT_KEY') or os.environ.get('client_email') else 'local'
+    }
+    logger.info(f"Health check: {health_status}")
+    return jsonify(health_status)
+
+@app.route('/debug/env', methods=['GET'])
+def debug_env():
+    """Debug endpoint to check environment variables (without sensitive data)"""
+    env_vars = {
+        'EE_SERVICE_ACCOUNT_KEY_exists': bool(os.environ.get('EE_SERVICE_ACCOUNT_KEY')),
+        'type_exists': bool(os.environ.get('type')),
+        'project_id_exists': bool(os.environ.get('project_id')),
+        'private_key_id_exists': bool(os.environ.get('private_key_id')),
+        'private_key_exists': bool(os.environ.get('private_key')),
+        'client_email_exists': bool(os.environ.get('client_email')),
+        'client_id_exists': bool(os.environ.get('client_id')),
+        'token_uri_exists': bool(os.environ.get('token_uri')),
+        'railway_environment': bool(os.environ.get('RAILWAY_ENVIRONMENT')),
+    }
+    return jsonify(env_vars)
 
 @app.route('/get-ndvi-tile-url', methods=['POST'])
 def get_ndvi_tile_url():
     """Generate a tile URL for NDVI visualization"""
-    print("📡 Received request for NDVI tile URL")
+    logger.info("📡 Received request for NDVI tile URL")
     
     if not ee_initialized:
-        print("✗ Earth Engine not initialized")
-        return jsonify({'error': 'Earth Engine not initialized. Please authenticate first.'}), 500
+        logger.error("Earth Engine not initialized")
+        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
     
     try:
         data = request.get_json()
-        print(f"Request data: {data}")
+        logger.info(f"Request data: {data}")
         
+        if not data:
+            return jsonify({'error': 'No JSON data provided'}), 400
+            
         target_date = data.get('target_date')
         
         if not target_date:
             return jsonify({'error': 'No target date provided'}), 400
         
-        print(f"Processing date: {target_date}")
+        logger.info(f"Processing date: {target_date}")
         
         # Parse target date and create a search window (±30 days)
         target = ee.Date(target_date)
@@ -82,10 +163,10 @@ def get_ndvi_tile_url():
             .filterDate(start, end)
         
         collection_size = modis.size().getInfo()
-        print(f"Found {collection_size} images")
+        logger.info(f"Found {collection_size} images")
         
         if collection_size == 0:
-            return jsonify({'error': 'No MODIS data available'}), 400
+            return jsonify({'error': 'No MODIS data available for the specified date range'}), 400
         
         # Find the image closest to the target date
         def add_date_diff(image):
@@ -103,7 +184,7 @@ def get_ndvi_tile_url():
         image_date = datetime.fromtimestamp(date_millis / 1000)
         date_str = image_date.strftime('%Y-%m-%d')
         
-        print(f"Using image from: {date_str}")
+        logger.info(f"Using image from: {date_str}")
         
         # Define visualization parameters with a color palette
         vis_params = {
@@ -115,26 +196,29 @@ def get_ndvi_tile_url():
         # Get map ID
         map_id = ndvi_scaled.getMapId(vis_params)
         
-        print(f"✓ Tile URL generated successfully")
+        logger.info("✓ Tile URL generated successfully")
         
         return jsonify({
             'tile_url': map_id['tile_fetcher'].url_format,
             'date': date_str
         })
         
+    except ee.EEException as e:
+        logger.error(f"Earth Engine error: {str(e)}")
+        return jsonify({'error': f'Earth Engine error: {str(e)}'}), 500
     except Exception as e:
-        print(f"✗ Error in get_ndvi_tile_url: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/calculate-ndvi', methods=['POST'])
 def calculate_ndvi():
-    print("📡 Received request for NDVI calculation")
+    logger.info("📡 Received request for NDVI calculation")
     
     if not ee_initialized:
-        print("✗ Earth Engine not initialized")
-        return jsonify({'error': 'Earth Engine not initialized. Please authenticate first.'}), 500
+        logger.error("Earth Engine not initialized")
+        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
     
     try:
         data = request.get_json()
@@ -147,7 +231,7 @@ def calculate_ndvi():
         if not target_date:
             return jsonify({'error': 'No target date provided'}), 400
         
-        print(f"Calculating NDVI for date: {target_date}")
+        logger.info(f"Calculating NDVI for date: {target_date}")
         
         # Convert GeoJSON geometry to Earth Engine geometry
         ee_geometry = ee.Geometry.Polygon(geometry['coordinates'])
@@ -165,7 +249,7 @@ def calculate_ndvi():
         
         # Check if collection is empty
         collection_size = modis.size().getInfo()
-        print(f"Found {collection_size} images")
+        logger.info(f"Found {collection_size} images")
         
         if collection_size == 0:
             return jsonify({'error': 'No MODIS data available within 30 days of the target date'}), 400
@@ -203,7 +287,7 @@ def calculate_ndvi():
         # Scale NDVI value (MODIS stores values multiplied by 10000)
         ndvi_scaled = ndvi_value / 10000.0
         
-        print(f"✓ NDVI calculated: {ndvi_scaled:.4f}")
+        logger.info(f"✓ NDVI calculated: {ndvi_scaled:.4f}")
         
         return jsonify({
             'ndvi': ndvi_scaled,
@@ -213,20 +297,23 @@ def calculate_ndvi():
             'product': 'MOD13Q1'
         })
         
+    except ee.EEException as e:
+        logger.error(f"Earth Engine error: {str(e)}")
+        return jsonify({'error': f'Earth Engine error: {str(e)}'}), 500
     except Exception as e:
-        print(f"✗ Error in calculate_ndvi: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 @app.route('/get-ndvi-history', methods=['POST'])
 def get_ndvi_history():
     """Get NDVI time series for the past year"""
-    print("📡 Received request for NDVI history")
+    logger.info("📡 Received request for NDVI history")
     
     if not ee_initialized:
-        print("✗ Earth Engine not initialized")
-        return jsonify({'error': 'Earth Engine not initialized. Please authenticate first.'}), 500
+        logger.error("Earth Engine not initialized")
+        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
     
     try:
         data = request.get_json()
@@ -239,7 +326,7 @@ def get_ndvi_history():
         if not target_date:
             return jsonify({'error': 'No target date provided'}), 400
         
-        print(f"Fetching history for date: {target_date}")
+        logger.info(f"Fetching history for date: {target_date}")
         
         # Convert GeoJSON geometry to Earth Engine geometry
         ee_geometry = ee.Geometry.Polygon(geometry['coordinates'])
@@ -255,7 +342,7 @@ def get_ndvi_history():
             .filterDate(start, target)
         
         collection_size = modis.size().getInfo()
-        print(f"Found {collection_size} images in the past year")
+        logger.info(f"Found {collection_size} images in the past year")
         
         if collection_size == 0:
             return jsonify({'error': 'No MODIS data available for this area in the past year'}), 400
@@ -295,7 +382,7 @@ def get_ndvi_history():
         # Sort by timestamp
         time_series.sort(key=lambda x: x['timestamp'])
         
-        print(f"Processing {len(time_series)} data points")
+        logger.info(f"Processing {len(time_series)} data points")
         
         # Detect blooming events (sudden increases in NDVI)
         blooms = []
@@ -312,18 +399,21 @@ def get_ndvi_history():
                     'increase': current - previous
                 })
         
-        print(f"✓ Found {len(blooms)} blooming events")
+        logger.info(f"✓ Found {len(blooms)} blooming events")
         
         return jsonify({
             'time_series': time_series,
             'blooms': blooms
         })
         
+    except ee.EEException as e:
+        logger.error(f"Earth Engine error: {str(e)}")
+        return jsonify({'error': f'Earth Engine error: {str(e)}'}), 500
     except Exception as e:
-        print(f"✗ Error in get_ndvi_history: {str(e)}")
+        logger.error(f"Unexpected error: {str(e)}")
         import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        logger.error(traceback.format_exc())
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     print("\n" + "="*50)
@@ -331,9 +421,19 @@ if __name__ == '__main__':
     print("="*50)
     if ee_initialized:
         print("✓ Earth Engine: Ready")
+        # Test EE connection
+        try:
+            test_image = ee.Image(1)
+            test_info = test_image.getInfo()
+            print("✓ Earth Engine: Test connection successful")
+        except Exception as e:
+            print(f"✗ Earth Engine: Test connection failed: {e}")
     else:
         print("✗ Earth Engine: Not initialized")
-        print("  Run: earthengine authenticate")
+        print(f"  Error: {init_error}")
+    print("Environment variables:")
+    print(f"  - EE_SERVICE_ACCOUNT_KEY: {'✓' if os.environ.get('EE_SERVICE_ACCOUNT_KEY') else '✗'}")
+    print(f"  - Individual vars: {'✓' if os.environ.get('client_email') else '✗'}")
     print("="*50 + "\n")
     
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
