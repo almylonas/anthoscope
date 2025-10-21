@@ -1,6 +1,7 @@
-Flask==3.0.0
-earthengine-api==0.1.384
-gunicorn==21.2.0
-google-auth==2.25.2
-google-auth-oauthlib==1.2.0
-google-auth-httplib2==0.2.0
+Flask==2.3.3
+earthengine-api==0.1.392
+google-auth==2.22.0
+google-auth-oauthlib==1.0.0
+pandas==2.0.3
+prophet==1.1.4
+numpy==1.24.3

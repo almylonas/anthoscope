@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 import os
 import logging
 import traceback
+import pandas as pd
+from prophet import Prophet
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,15 +90,6 @@ def health():
         'ee_test_error': ee_test_error,
         'init_error': init_error,
         'timestamp': datetime.now().isoformat()
-    })
-
-@app.route('/debug/env', methods=['GET'])
-def debug_env():
-    """Debug environment variables"""
-    return jsonify({
-        'ee_service_account_json_present': bool(os.environ.get('EE_SERVICE_ACCOUNT_JSON')),
-        'environment': 'railway' if os.environ.get('RAILWAY_ENVIRONMENT') else 'local',
-        'port': os.environ.get('PORT')
     })
 
 @app.route('/get-ndvi-tile-url', methods=['POST'])
@@ -337,6 +330,150 @@ def get_ndvi_history():
         
     except Exception as e:
         logger.error(f"Error in get_ndvi_history: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/forecast-ndvi', methods=['POST'])
+def forecast_ndvi():
+    """Generate NDVI forecast using Prophet"""
+    if not ee_initialized:
+        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
+    
+    try:
+        data = request.get_json()
+        geometry = data.get('geometry')
+        target_date = data.get('target_date')
+        periods = data.get('periods', 180)  # Default to 6 months forecast
+        
+        if not geometry:
+            return jsonify({'error': 'No geometry provided'}), 400
+        
+        if not target_date:
+            return jsonify({'error': 'No target date provided'}), 400
+        
+        # Convert GeoJSON geometry to Earth Engine geometry
+        ee_geometry = ee.Geometry.Polygon(geometry['coordinates'])
+        
+        # Get two years of historical data for better forecasting
+        target = ee.Date(target_date)
+        start = target.advance(-730, 'day')  # 2 years back
+        end = target.advance(30, 'day')      # Include some buffer
+        
+        # Get MODIS NDVI data
+        modis = ee.ImageCollection('MODIS/061/MOD13Q1') \
+            .select('NDVI') \
+            .filterBounds(ee_geometry) \
+            .filterDate(start, end)
+        
+        collection_size = modis.size().getInfo()
+        
+        if collection_size == 0:
+            return jsonify({'error': 'No MODIS data available for this area'}), 400
+        
+        # Calculate mean NDVI for each image
+        def compute_mean(image):
+            mean = image.reduceRegion(
+                reducer=ee.Reducer.mean(),
+                geometry=ee_geometry,
+                scale=250,
+                maxPixels=1e9
+            ).get('NDVI')
+            
+            return ee.Feature(None, {
+                'date': image.date().format('YYYY-MM-dd'),
+                'ndvi': ee.Number(mean).divide(10000.0),
+                'timestamp': image.date().millis()
+            })
+        
+        # Map over collection and get results
+        features = modis.map(compute_mean).getInfo()
+        
+        if not features or len(features['features']) == 0:
+            return jsonify({'error': 'No NDVI data available for this area'}), 400
+        
+        # Extract time series data
+        time_series = []
+        for feature in features['features']:
+            props = feature['properties']
+            if props.get('ndvi') is not None:
+                time_series.append({
+                    'date': props['date'],
+                    'ndvi': props['ndvi'],
+                    'timestamp': props['timestamp']
+                })
+        
+        # Sort by timestamp
+        time_series.sort(key=lambda x: x['timestamp'])
+        
+        if len(time_series) < 10:
+            return jsonify({'error': 'Not enough historical data for forecasting (minimum 10 data points required)'}), 400
+        
+        # Prepare data for Prophet
+        df = pd.DataFrame(time_series)
+        df['ds'] = pd.to_datetime(df['date'])
+        df['y'] = df['ndvi']
+        
+        # Remove duplicates and sort
+        df = df.drop_duplicates('ds').sort_values('ds')
+        
+        # Create and fit Prophet model
+        model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.05,
+            seasonality_prior_scale=10.0
+        )
+        
+        # Add additional regressors if needed
+        model.add_country_holidays(country_name='US')  # Adjust based on your region
+        
+        model.fit(df[['ds', 'y']])
+        
+        # Create future dataframe
+        future = model.make_future_dataframe(periods=periods, freq='16D')  # MODIS 16-day frequency
+        
+        # Generate forecast
+        forecast = model.predict(future)
+        
+        # Prepare response data
+        historical_data = []
+        for _, row in df.iterrows():
+            historical_data.append({
+                'date': row['ds'].strftime('%Y-%m-%d'),
+                'ndvi': float(row['y']),
+                'type': 'historical'
+            })
+        
+        forecast_data = []
+        for _, row in forecast.iterrows():
+            if row['ds'] > df['ds'].max():
+                forecast_data.append({
+                    'date': row['ds'].strftime('%Y-%m-%d'),
+                    'ndvi': float(row['yhat']),
+                    'ndvi_lower': float(row['yhat_lower']),
+                    'ndvi_upper': float(row['yhat_upper']),
+                    'type': 'forecast'
+                })
+        
+        # Get trend and seasonality components
+        components = model.plot_components(forecast)
+        
+        return jsonify({
+            'historical': historical_data,
+            'forecast': forecast_data,
+            'model_metrics': {
+                'historical_points': len(historical_data),
+                'forecast_points': len(forecast_data),
+                'last_historical_date': df['ds'].max().strftime('%Y-%m-%d'),
+                'forecast_start_date': forecast_data[0]['date'] if forecast_data else None,
+                'forecast_end_date': forecast_data[-1]['date'] if forecast_data else None
+            },
+            'success': True
+        })
+        
+    except Exception as e:
+        logger.error(f"Error in forecast_ndvi: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':

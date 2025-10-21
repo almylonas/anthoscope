@@ -600,6 +600,206 @@
                 document.getElementById('chart-container').classList.remove('show');
             });
 
+            // Forecast NDVI Button
+            document.getElementById('forecast-ndvi').addEventListener('click', async function() {
+                if (!currentPolygon) return;
+                
+                const button = this;
+                const targetDate = document.getElementById('target-date').value;
+                
+                if (!targetDate) {
+                    alert('Please select a date');
+                    return;
+                }
+                
+                button.disabled = true;
+                button.textContent = 'Generating Forecast...';
+                
+                try {
+                    const response = await fetch('/forecast-ndvi', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            geometry: currentPolygon.geometry,
+                            target_date: targetDate,
+                            periods: 180 // 6 months forecast
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const contentType = response.headers.get("content-type");
+                    if (!contentType || !contentType.includes("application/json")) {
+                        throw new Error("Server error. Check if Flask app is running and Earth Engine is authenticated.");
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        alert(`Error: ${data.error}`);
+                    } else {
+                        displayForecastChart(data.historical, data.forecast, data.model_metrics);
+                    }
+                } catch (error) {
+                    alert(`Error: ${error.message}`);
+                } finally {
+                    button.disabled = false;
+                    button.textContent = 'Forecast Future NDVI';
+                }
+            });
+
+            function displayForecastChart(historical, forecast, metrics) {
+                const chartContainer = document.getElementById('chart-container');
+                chartContainer.classList.add('show');
+                
+                const ctx = document.getElementById('ndvi-chart').getContext('2d');
+                
+                if (ndviChart) {
+                    ndviChart.destroy();
+                }
+                
+                // Combine historical and forecast data
+                const allDates = [...historical.map(d => d.date), ...forecast.map(d => d.date)];
+                const historicalValues = historical.map(d => d.ndvi);
+                const forecastValues = forecast.map(d => d.ndvi);
+                const forecastLower = forecast.map(d => d.ndvi_lower);
+                const forecastUpper = forecast.map(d => d.ndvi_upper);
+                
+                // Create combined dataset for the chart
+                const combinedValues = [
+                    ...historicalValues,
+                    ...forecastValues
+                ];
+                
+                ndviChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: allDates,
+                        datasets: [
+                            {
+                                label: 'Historical NDVI',
+                                data: historicalValues.map((value, index) => ({
+                                    x: allDates[index],
+                                    y: value
+                                })),
+                                borderColor: '#2e7d32',
+                                backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            },
+                            {
+                                label: 'Forecast NDVI',
+                                data: combinedValues.map((value, index) => ({
+                                    x: allDates[index],
+                                    y: index >= historicalValues.length ? value : null
+                                })),
+                                borderColor: '#ff9800',
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 3,
+                                pointHoverRadius: 5
+                            },
+                            {
+                                label: 'Confidence Interval',
+                                data: [
+                                    ...historical.map(d => null),
+                                    ...forecast.map((d, index) => ({
+                                        x: allDates[historical.length + index],
+                                        y: d.ndvi
+                                    }))
+                                ],
+                                backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                                borderColor: 'rgba(255, 152, 0, 0)',
+                                fill: '+1',
+                                pointRadius: 0,
+                                showLine: false
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top'
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += context.parsed.y.toFixed(4);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            },
+                            annotation: {
+                                annotations: {
+                                    line1: {
+                                        type: 'line',
+                                        xMin: allDates[historical.length - 1],
+                                        xMax: allDates[historical.length - 1],
+                                        borderColor: 'red',
+                                        borderWidth: 2,
+                                        label: {
+                                            display: true,
+                                            content: 'Forecast Start',
+                                            position: 'end'
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                },
+                                ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: 'NDVI Value'
+                                },
+                                min: 0,
+                                max: 1
+                            }
+                        },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false
+                        }
+                    }
+                });
+                
+                // Update chart header with forecast info
+                const chartHeader = document.querySelector('.chart-header h3');
+                chartHeader.textContent = `NDVI Forecast (${metrics.forecast_points} future points)`;
+            }
+
             function displayChart(timeSeries, blooms) {
                 const chartContainer = document.getElementById('chart-container');
                 chartContainer.classList.add('show');
