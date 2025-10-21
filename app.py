@@ -10,15 +10,31 @@ ee_initialized = False
 init_error = None
 
 try:
-    ee.Initialize(project='nsa-agroai')
+    # Check if running on Railway (using service account)
+    import os
+    ee_key = os.environ.get('EE_SERVICE_ACCOUNT_KEY')
+    
+    if ee_key:
+        # Running on Railway - use service account from environment variable
+        import json
+        credentials_dict = json.loads(ee_key)
+        credentials = ee.ServiceAccountCredentials(
+            email=credentials_dict['client_email'],
+            key_data=ee_key
+        )
+        ee.Initialize(credentials=credentials, project='nsa-agroai')
+        print("✓ Earth Engine initialized with service account")
+    else:
+        # Running locally - use default credentials
+        ee.Initialize(project='nsa-agroai')
+        print("✓ Earth Engine initialized with local credentials")
+    
     ee_initialized = True
-    print("✓ Earth Engine initialized successfully")
-    service_account = 'project@nsa-agroai.iam.gserviceaccount.com'
-    credentials = ee.ServiceAccountCredentials(service_account, 'nsa-agroai-f02201eb5c05.json')
 except Exception as e:
     init_error = str(e)
     print(f"✗ Earth Engine initialization error: {e}")
-    print("Please run 'earthengine authenticate' in your terminal first")
+    print("Local: Run 'earthengine authenticate'")
+    print("Railway: Set EE_SERVICE_ACCOUNT_KEY environment variable")
     ee_initialized = False
 
 @app.route('/')
