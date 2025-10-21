@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "nsa-agroai",
+  "private_key_id": "f02201eb5c0519d33079f5487fd965ef074dce71",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCOxayJcHzdHR1y\ngRYel7rABFoaSxyP0tE3rtrMKtKcNsBA9QCHnjuRpjH3RP5R+ReDSwEgHc1OYEdG\njANkcZMWroiPwbM5vSxrHFNjMvIyC9QK/HQAZDFmPSppE2v5H9vZIOOABWkU6oiw\nyE/9WT6rAJ7DNUJgA0BKZMO4/3FXS/OxpCA0LP+uoOf1TyNBDMN0MOp22CIZWeRe\nzNm50/a1wvVemvM+t04xky/GqVoLiT5pUwQ23amUV900OdXKKxhksiiyXC+6ghbZ\n6xXPfKxbNReSsFTsBCSzIxFZ5mxI/TYRrLqNCbAIlkQMBteCbeWUlpZ9vo8Y3hIY\nyVoVkx8LAgMBAAECggEAKZJ/oemCQjQ3Hd9enHvb4guiXOOgJnThfNBKX4bcmqYK\npx9wDw1RFSEKjZCmaSIZ6Z4ObtaesIKyXmVom3fCt6kMlKd3U4m1BF9UHJ96DH6L\nOMO312FVTQrkbYI9P2Y6cufztpRcu71rHebF++RfrhVZJUg90o0/zCm5IAYpb5x7\nudh2BUSaHoTDFYZ5KticJ90+ZnXSFRyEv/rJbBC12DFqFP7Piy52wKNwtO4hzd4V\n1+yIhQt/MieicVBfnIHMLta3hUNQrkn8CAr1O+2jOsTou6RQQMwAvvKp3YVx0vC5\nc8t/zZ9jrUHH1e3oAuQY342a3vgevtPOcnf/Z9kGYQKBgQDBiMTaThTDjlWLGoku\n81jRJTuHy6xwLFTpdIJn/1LH6RDkQzLSc8KmZxHenssEBGgX0W9Baq8J1kTzgCqo\nDq+Y/n/VFfETm/h6TKqRsdT7ivr2/f4wgItOLrs0fJ7a4UJjdreE3Rb7TJlGJT2c\ntmb9kzs8mvaQ0H3qRxiAfJemGwKBgQC82pDZq2ijwYuWBps0XqK/lGO/bKq3FAJP\n+TpeGrBg1tILcL3Ubytqq6lKEU52fgrRiqTaBlYWgsgP6QLWeAahLuoU4eJG2gSO\nc8AF0HrUGl7Pj01o6m3NsNS6iF8RC2ZbJoP95996aQli1ykzs//FycIhvG143tTu\nHf1l6+G50QKBgQCNUL7c4NLMkGvqLLAq9knOPa+gUppRNi2yYf6uzYK2snpBEshT\nX2+sbepgcfavskAH1Ee2rp2tQyYJ33ZGTKLvxjW1dFYaCXOAaebKh92K50qle4VW\nCSavKfRMOQsNrBn74r3SaFXVnXL2A09f1NiTJCTG9ihASd0Ham57s35QLQKBgQC6\nUKc3F/RUGk4r5LiaIgNOHoeKAxspI4Rkge0jihEYeNcgkkm1mzeqNVD+0bQnEpJ5\nx957emTUMJJPoAI8tI1V14L4tyEV5WE5aNi448VKG/oNq8MjDqTlmN9GZ+PiXOzO\nYGE3zdqcWaP472ympZ5g83ui7NLTvIM1qECmnOBFAQKBgFksMmdC2m32XHel5XOF\nt7NHumw/4E8tjsB/mNfQSOCfqcnVPn5+7TZZapmxgqOPpupSnLvWdf273V3ZqX8W\nw1s236gZsUgJMa9K2IpS0INNraqAtCdedIrFo9sHmUr/LQRNZH4NGZbJrndB0yMr\n525yqlgIelCBbYUCONcZi3XU\n-----END PRIVATE KEY-----\n",
+  "client_email": "project@nsa-agroai.iam.gserviceaccount.com",
+  "client_id": "112056661603463063939",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/project%40nsa-agroai.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

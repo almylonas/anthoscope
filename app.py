@@ -13,6 +13,8 @@ try:
     ee.Initialize(project='nsa-agroai')
     ee_initialized = True
     print("✓ Earth Engine initialized successfully")
+    service_account = 'project@nsa-agroai.iam.gserviceaccount.com'
+    credentials = ee.ServiceAccountCredentials(service_account, 'nsa-agroai-f02201eb5c05.json')
 except Exception as e:
     init_error = str(e)
     print(f"✗ Earth Engine initialization error: {e}")
