@@ -163,6 +163,19 @@
             margin-right: 8px;
             width: auto;
         }
+        .draw-controls {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
+        .draw-controls button {
+            margin: 2px;
+            width: calc(50% - 4px);
+        }
+        .draw-controls .btn-group {
+            display: flex;
+            gap: 4px;
+        }
     </style>
 </head>
 <body>
@@ -203,6 +216,14 @@
     <div class="calculation-box">
         <p><strong>Draw a polygon on the map</strong></p>
         <div id="calculated-area"></div>
+        
+        <div class="draw-controls">
+            <div class="btn-group">
+                <button id="draw-polygon" style="background-color: #28a745;">Draw Polygon</button>
+                <button id="remove-polygon" style="background-color: #dc3545;">Remove Polygon</button>
+            </div>
+        </div>
+        
         <div class="date-inputs">
             <label for="target-date">Date of Interest:</label>
             <input type="date" id="target-date">
@@ -235,12 +256,11 @@
         });
 
         const draw = new MapboxDraw({
-            displayControlsDefault: true,
+            displayControlsDefault: false, // We'll use custom controls
             controls: {
-                polygon: true,
-                trash: true
+                polygon: false,
+                trash: false
             },
-            defaultMode: 'draw_polygon',
             styles: [
                 {
                     'id': 'gl-draw-polygon-fill',
@@ -296,6 +316,36 @@
             const today = new Date();
             document.getElementById('target-date').valueAsDate = today;
 
+            // Custom draw controls
+            document.getElementById('draw-polygon').addEventListener('click', function() {
+                draw.changeMode('draw_polygon');
+                document.getElementById('ndvi-result').innerHTML = '<p class="loading">Click on the map to start drawing a polygon...</p>';
+            });
+
+            document.getElementById('remove-polygon').addEventListener('click', function() {
+                const data = draw.getAll();
+                if (data.features.length === 0) {
+                    document.getElementById('ndvi-result').innerHTML = '<p class="error">No polygon to remove!</p>';
+                    return;
+                }
+                
+                // Remove all drawn features
+                data.features.forEach(feature => {
+                    draw.delete(feature.id);
+                });
+                
+                currentPolygon = null;
+                document.getElementById('calculated-area').innerHTML = '';
+                document.getElementById('calculate-ndvi').disabled = true;
+                document.getElementById('show-history').disabled = true;
+                document.getElementById('ndvi-result').innerHTML = '<p class="success">Polygon removed successfully!</p>';
+                
+                // Clear the message after 3 seconds
+                setTimeout(() => {
+                    document.getElementById('ndvi-result').innerHTML = '';
+                }, 3000);
+            });
+
             map.on('draw.create', updateArea);
             map.on('draw.delete', updateArea);
             map.on('draw.update', updateArea);
@@ -314,13 +364,19 @@
                     answer.innerHTML = `<p>Area: <strong>${rounded_area}</strong> km²</p>`;
                     ndviButton.disabled = false;
                     historyButton.disabled = false;
-                    ndviResult.innerHTML = '';
+                    ndviResult.innerHTML = '<p class="success">Polygon drawn successfully!</p>';
+                    
+                    // Clear the success message after 3 seconds
+                    setTimeout(() => {
+                        if (ndviResult.innerHTML.includes('successfully')) {
+                            ndviResult.innerHTML = '';
+                        }
+                    }, 3000);
                 } else {
                     currentPolygon = null;
                     answer.innerHTML = '';
                     ndviButton.disabled = true;
                     historyButton.disabled = true;
-                    ndviResult.innerHTML = '';
                 }
             }
 
