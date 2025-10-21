@@ -12,7 +12,6 @@ init_error = None
 try:
     # Check if running on Railway (using service account)
     import os
-    ee_key = os.environ.get('EE_SERVICE_ACCOUNT_KEY')
     
     if ee_key:
         # Running on Railway - use service account from environment variable
@@ -20,7 +19,7 @@ try:
         credentials_dict = json.loads(ee_key)
         credentials = ee.ServiceAccountCredentials(
             email=credentials_dict['client_email'],
-            key_data=ee_key
+            key_data=['private_key']
         )
         ee.Initialize(credentials=credentials, project='nsa-agroai')
         print("✓ Earth Engine initialized with service account")
