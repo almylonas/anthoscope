@@ -10,13 +10,15 @@ ee_initialized = False
 init_error = None
 
 try:
-    # Check if running on Railway (using service account)
     import os
     
-    if ee_key:
+    # Check if running on Railway with service account
+    ee_key_json = os.environ.get('EE_SERVICE_ACCOUNT_KEY')
+    
+    if ee_key_json:
         # Running on Railway - use service account from environment variable
         import json
-        credentials_dict = json.loads(ee_key)
+        credentials_dict = json.loads(ee_key_json)
         credentials = ee.ServiceAccountCredentials(
             email=credentials_dict['client_email'],
             key_data=credentials_dict['private_key']
