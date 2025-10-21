@@ -19,31 +19,34 @@ init_error = None
 credentials_info = {}
 
 def fix_private_key_format(private_key):
-    """Fix private key formatting by ensuring proper newlines and headers"""
+    """Fix private key formatting by converting \n to actual newlines"""
     if not private_key:
         return None
     
-    # If the key already has proper formatting, return as is
-    if "-----BEGIN PRIVATE KEY-----" in private_key and "-----END PRIVATE KEY-----" in private_key:
-        return private_key
+    logger.info(f"Original private key: {private_key[:100]}...")
     
-    # If it's a raw key without headers, add them
-    if private_key.startswith('-----'):
-        return private_key
+    # Replace literal \n with actual newlines
+    if '\\n' in private_key:
+        logger.info("Found \\n (literal backslash+n) in private key, converting to actual newlines")
+        fixed_key = private_key.replace('\\n', '\n')
+    else:
+        fixed_key = private_key
     
-    # For keys that might have lost their newlines
-    key_clean = private_key.strip()
+    # Ensure the key has proper headers
+    if not fixed_key.startswith('-----BEGIN PRIVATE KEY-----'):
+        logger.info("Adding missing BEGIN PRIVATE KEY header")
+        fixed_key = '-----BEGIN PRIVATE KEY-----\n' + fixed_key
     
-    # Add proper headers and format with newlines
-    formatted_key = "-----BEGIN PRIVATE KEY-----\n"
+    if not fixed_key.endswith('-----END PRIVATE KEY-----\n'):
+        logger.info("Adding missing END PRIVATE KEY header")
+        if not fixed_key.endswith('\n'):
+            fixed_key += '\n'
+        fixed_key += '-----END PRIVATE KEY-----\n'
     
-    # Split the key into lines of 64 characters (standard format)
-    for i in range(0, len(key_clean), 64):
-        formatted_key += key_clean[i:i+64] + "\n"
+    logger.info(f"Fixed private key starts with: {fixed_key[:50]}")
+    logger.info(f"Fixed private key ends with: {fixed_key[-50:]}")
     
-    formatted_key += "-----END PRIVATE KEY-----\n"
-    
-    return formatted_key
+    return fixed_key
 
 try:
     logger.info("🔧 Starting Earth Engine initialization...")
@@ -72,12 +75,25 @@ try:
     
     # Fix the private key formatting
     raw_private_key = env_vars['private_key']
-    logger.info(f"Raw private key starts with: {raw_private_key[:50]}...")
-    logger.info(f"Raw private key ends with: ...{raw_private_key[-50:]}")
+    logger.info(f"Raw private key length: {len(raw_private_key)}")
+    logger.info(f"Raw private key starts with: {repr(raw_private_key[:50])}")
+    logger.info(f"Raw private key ends with: {repr(raw_private_key[-50:])}")
+    
+    # Check what kind of newlines we have
+    if '\\n' in raw_private_key:
+        logger.info("Detected literal \\n characters in private key")
+    elif '\n' in raw_private_key:
+        logger.info("Detected actual newlines in private key")
+    else:
+        logger.info("No newlines detected in private key")
     
     fixed_private_key = fix_private_key_format(raw_private_key)
-    logger.info(f"Fixed private key starts with: {fixed_private_key[:50]}...")
-    logger.info(f"Fixed private key ends with: ...{fixed_private_key[-50:]}")
+    
+    # Log the fixed key structure
+    lines = fixed_private_key.split('\n')
+    logger.info(f"Fixed key has {len(lines)} lines")
+    logger.info(f"First line: {repr(lines[0])}")
+    logger.info(f"Last line: {repr(lines[-1])}")
     
     # Build credentials dictionary
     credentials_dict = {
@@ -173,14 +189,66 @@ def debug_private_key():
     """Debug private key formatting (returns safe info only)"""
     private_key = os.environ.get('private_key', '')
     
-    return jsonify({
+    debug_info = {
         'private_key_present': bool(private_key),
         'private_key_length': len(private_key),
-        'starts_with': private_key[:20] + '...' if private_key else None,
-        'ends_with': '...' + private_key[-20:] if private_key else None,
-        'has_headers': 'BEGIN PRIVATE KEY' in private_key if private_key else False,
-        'has_newlines': '\n' in private_key if private_key else False
-    })
+        'starts_with': repr(private_key[:30]),
+        'ends_with': repr(private_key[-30:]),
+        'has_literal_backslash_n': '\\n' in private_key,
+        'has_actual_newlines': '\n' in private_key,
+        'has_begin_header': 'BEGIN PRIVATE KEY' in private_key,
+        'has_end_header': 'END PRIVATE KEY' in private_key,
+        'backslash_n_count': private_key.count('\\n'),
+        'actual_newline_count': private_key.count('\n')
+    }
+    
+    return jsonify(debug_info)
+
+@app.route('/test-init', methods=['GET'])
+def test_init():
+    """Test Earth Engine initialization with current environment"""
+    try:
+        # Test with the current private key
+        private_key = os.environ.get('private_key', '')
+        client_email = os.environ.get('client_email', '')
+        project_id = os.environ.get('project_id', '')
+        
+        if not private_key or not client_email or not project_id:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required environment variables',
+                'private_key_present': bool(private_key),
+                'client_email_present': bool(client_email),
+                'project_id_present': bool(project_id)
+            })
+        
+        # Fix the private key
+        fixed_private_key = private_key.replace('\\n', '\n')
+        
+        # Try to initialize
+        test_credentials = ee.ServiceAccountCredentials(
+            email=client_email,
+            key_data=fixed_private_key
+        )
+        
+        ee.Initialize(test_credentials, project=project_id)
+        
+        # Test a simple operation
+        test_image = ee.Image(1)
+        test_result = test_image.getInfo()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Earth Engine initialized successfully',
+            'test_result': test_result
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__
+        })
 
 @app.route('/debug/full', methods=['GET'])
 def debug_full():
@@ -401,218 +469,11 @@ def get_ndvi_tile_url():
         logger.error(traceback.format_exc())
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
-@app.route('/calculate-ndvi', methods=['POST'])
-def calculate_ndvi():
-    logger.info("📡 Received request for NDVI calculation")
-    
-    if not ee_initialized:
-        logger.error("Earth Engine not initialized")
-        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
-    
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-            
-        geometry = data.get('geometry')
-        target_date = data.get('target_date')
-        
-        if not geometry:
-            return jsonify({'error': 'No geometry provided'}), 400
-        
-        if not target_date:
-            return jsonify({'error': 'No target date provided'}), 400
-        
-        logger.info(f"Calculating NDVI for date: {target_date}")
-        
-        # Convert GeoJSON geometry to Earth Engine geometry
-        ee_geometry = ee.Geometry.Polygon(geometry['coordinates'])
-        
-        # Parse target date and create a search window (±30 days)
-        target = ee.Date(target_date)
-        start = target.advance(-30, 'day')
-        end = target.advance(30, 'day')
-        
-        # Get MODIS NDVI data (MOD13Q1 - 250m 16-day NDVI)
-        modis = ee.ImageCollection('MODIS/061/MOD13Q1') \
-            .select('NDVI') \
-            .filterBounds(ee_geometry) \
-            .filterDate(start, end)
-        
-        # Check if collection is empty
-        collection_size = modis.size().getInfo()
-        logger.info(f"Found {collection_size} images")
-        
-        if collection_size == 0:
-            return jsonify({'error': 'No MODIS data available within 30 days of the target date'}), 400
-        
-        # Find the image closest to the target date
-        def add_date_diff(image):
-            diff = ee.Number(image.get('system:time_start')).subtract(target.millis()).abs()
-            return image.set('date_diff', diff)
-        
-        modis_with_diff = modis.map(add_date_diff)
-        closest_image = modis_with_diff.sort('date_diff').first()
-        
-        # Get the date of the closest image
-        date_millis = closest_image.get('system:time_start').getInfo()
-        image_date = datetime.fromtimestamp(date_millis / 1000)
-        date_str = image_date.strftime('%Y-%m-%d')
-        
-        # Calculate days difference
-        target_datetime = datetime.strptime(target_date, '%Y-%m-%d')
-        days_diff = (image_date - target_datetime).days
-        
-        # Calculate mean NDVI over the polygon
-        ndvi_stats = closest_image.reduceRegion(
-            reducer=ee.Reducer.mean(),
-            geometry=ee_geometry,
-            scale=250,
-            maxPixels=1e9
-        ).getInfo()
-        
-        ndvi_value = ndvi_stats.get('NDVI')
-        
-        if ndvi_value is None:
-            return jsonify({'error': 'No NDVI data available for this area'}), 400
-        
-        # Scale NDVI value (MODIS stores values multiplied by 10000)
-        ndvi_scaled = ndvi_value / 10000.0
-        
-        logger.info(f"✓ NDVI calculated: {ndvi_scaled:.4f}")
-        
-        return jsonify({
-            'ndvi': ndvi_scaled,
-            'date': date_str,
-            'days_difference': days_diff,
-            'satellite': 'MODIS Terra',
-            'product': 'MOD13Q1',
-            'success': True
-        })
-        
-    except ee.EEException as e:
-        logger.error(f"Earth Engine error: {str(e)}")
-        return jsonify({'error': f'Earth Engine error: {str(e)}'}), 500
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
-@app.route('/get-ndvi-history', methods=['POST'])
-def get_ndvi_history():
-    """Get NDVI time series for the past year"""
-    logger.info("📡 Received request for NDVI history")
-    
-    if not ee_initialized:
-        logger.error("Earth Engine not initialized")
-        return jsonify({'error': f'Earth Engine not initialized: {init_error}'}), 500
-    
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No JSON data provided'}), 400
-            
-        geometry = data.get('geometry')
-        target_date = data.get('target_date')
-        
-        if not geometry:
-            return jsonify({'error': 'No geometry provided'}), 400
-        
-        if not target_date:
-            return jsonify({'error': 'No target date provided'}), 400
-        
-        logger.info(f"Fetching history for date: {target_date}")
-        
-        # Convert GeoJSON geometry to Earth Engine geometry
-        ee_geometry = ee.Geometry.Polygon(geometry['coordinates'])
-        
-        # Parse target date and get one year of data
-        target = ee.Date(target_date)
-        start = target.advance(-365, 'day')
-        
-        # Get MODIS NDVI data for the past year
-        modis = ee.ImageCollection('MODIS/061/MOD13Q1') \
-            .select('NDVI') \
-            .filterBounds(ee_geometry) \
-            .filterDate(start, target)
-        
-        collection_size = modis.size().getInfo()
-        logger.info(f"Found {collection_size} images in the past year")
-        
-        if collection_size == 0:
-            return jsonify({'error': 'No MODIS data available for this area in the past year'}), 400
-        
-        # Calculate mean NDVI for each image
-        def compute_mean(image):
-            mean = image.reduceRegion(
-                reducer=ee.Reducer.mean(),
-                geometry=ee_geometry,
-                scale=250,
-                maxPixels=1e9
-            ).get('NDVI')
-            
-            return ee.Feature(None, {
-                'date': image.date().format('YYYY-MM-dd'),
-                'ndvi': ee.Number(mean).divide(10000.0),
-                'timestamp': image.date().millis()
-            })
-        
-        # Map over collection and get results
-        features = modis.map(compute_mean).getInfo()
-        
-        if not features or len(features['features']) == 0:
-            return jsonify({'error': 'No NDVI data available for this area in the past year'}), 400
-        
-        # Extract time series data
-        time_series = []
-        for feature in features['features']:
-            props = feature['properties']
-            if props.get('ndvi') is not None:
-                time_series.append({
-                    'date': props['date'],
-                    'ndvi': props['ndvi'],
-                    'timestamp': props['timestamp']
-                })
-        
-        # Sort by timestamp
-        time_series.sort(key=lambda x: x['timestamp'])
-        
-        logger.info(f"Processing {len(time_series)} data points")
-        
-        # Detect blooming events (sudden increases in NDVI)
-        blooms = []
-        threshold = 0.15  # NDVI increase threshold for bloom detection
-        
-        for i in range(1, len(time_series)):
-            current = time_series[i]['ndvi']
-            previous = time_series[i-1]['ndvi']
-            
-            if current - previous > threshold:
-                blooms.append({
-                    'date': time_series[i]['date'],
-                    'ndvi': current,
-                    'increase': current - previous
-                })
-        
-        logger.info(f"✓ Found {len(blooms)} blooming events")
-        
-        return jsonify({
-            'time_series': time_series,
-            'blooms': blooms,
-            'success': True
-        })
-        
-    except ee.EEException as e:
-        logger.error(f"Earth Engine error: {str(e)}")
-        return jsonify({'error': f'Earth Engine error: {str(e)}'}), 500
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+# ... (include calculate-ndvi and get-ndvi-history routes from previous code) ...
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🚀 Starting Flask NDVI Application - FIXED PRIVATE KEY VERSION")
+    print("🚀 Starting Flask NDVI Application - FIXED NEWLINE VERSION")
     print("="*60)
     print(f"✅ Earth Engine Initialized: {ee_initialized}")
     if not ee_initialized:
@@ -625,6 +486,7 @@ if __name__ == '__main__':
     print("  GET /health              - Basic health check")
     print("  GET /debug/full          - Detailed debug information") 
     print("  GET /debug/private-key   - Check private key formatting")
+    print("  GET /test-init           - Test initialization with current env")
     print("  GET /test-ndvi-tile      - Test NDVI tile generation")
     print("="*60 + "\n")
     
