@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import logging
 import traceback
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -16,6 +17,33 @@ app = Flask(__name__)
 ee_initialized = False
 init_error = None
 credentials_info = {}
+
+def fix_private_key_format(private_key):
+    """Fix private key formatting by ensuring proper newlines and headers"""
+    if not private_key:
+        return None
+    
+    # If the key already has proper formatting, return as is
+    if "-----BEGIN PRIVATE KEY-----" in private_key and "-----END PRIVATE KEY-----" in private_key:
+        return private_key
+    
+    # If it's a raw key without headers, add them
+    if private_key.startswith('-----'):
+        return private_key
+    
+    # For keys that might have lost their newlines
+    key_clean = private_key.strip()
+    
+    # Add proper headers and format with newlines
+    formatted_key = "-----BEGIN PRIVATE KEY-----\n"
+    
+    # Split the key into lines of 64 characters (standard format)
+    for i in range(0, len(key_clean), 64):
+        formatted_key += key_clean[i:i+64] + "\n"
+    
+    formatted_key += "-----END PRIVATE KEY-----\n"
+    
+    return formatted_key
 
 try:
     logger.info("🔧 Starting Earth Engine initialization...")
@@ -42,12 +70,21 @@ try:
         logger.error(error_msg)
         raise Exception(error_msg)
     
+    # Fix the private key formatting
+    raw_private_key = env_vars['private_key']
+    logger.info(f"Raw private key starts with: {raw_private_key[:50]}...")
+    logger.info(f"Raw private key ends with: ...{raw_private_key[-50:]}")
+    
+    fixed_private_key = fix_private_key_format(raw_private_key)
+    logger.info(f"Fixed private key starts with: {fixed_private_key[:50]}...")
+    logger.info(f"Fixed private key ends with: ...{fixed_private_key[-50:]}")
+    
     # Build credentials dictionary
     credentials_dict = {
         'type': env_vars['type'],
         'project_id': env_vars['project_id'],
         'private_key_id': env_vars['private_key_id'],
-        'private_key': env_vars['private_key'],
+        'private_key': fixed_private_key,
         'client_email': env_vars['client_email'],
         'client_id': env_vars['client_id'],
         'auth_uri': os.environ.get('auth_uri', 'https://accounts.google.com/o/oauth2/auth'),
@@ -130,6 +167,20 @@ def health():
     
     logger.info(f"Health check: {health_status}")
     return jsonify(health_status)
+
+@app.route('/debug/private-key', methods=['GET'])
+def debug_private_key():
+    """Debug private key formatting (returns safe info only)"""
+    private_key = os.environ.get('private_key', '')
+    
+    return jsonify({
+        'private_key_present': bool(private_key),
+        'private_key_length': len(private_key),
+        'starts_with': private_key[:20] + '...' if private_key else None,
+        'ends_with': '...' + private_key[-20:] if private_key else None,
+        'has_headers': 'BEGIN PRIVATE KEY' in private_key if private_key else False,
+        'has_newlines': '\n' in private_key if private_key else False
+    })
 
 @app.route('/debug/full', methods=['GET'])
 def debug_full():
@@ -258,6 +309,8 @@ def test_ndvi_tile():
         logger.error(f"Unexpected error in test: {str(e)}")
         logger.error(traceback.format_exc())
         return jsonify({'error': f'Test failed: {str(e)}'}), 500
+
+# ... (keep all your existing routes: get-ndvi-tile-url, calculate-ndvi, get-ndvi-history) ...
 
 @app.route('/get-ndvi-tile-url', methods=['POST'])
 def get_ndvi_tile_url():
@@ -557,25 +610,9 @@ def get_ndvi_history():
         logger.error(traceback.format_exc())
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
-# Add a catch-all route for debugging
-@app.route('/<path:path>')
-def catch_all(path):
-    return jsonify({
-        'error': f'Route not found: /{path}',
-        'available_routes': [
-            'GET /',
-            'GET /health', 
-            'GET /debug/full',
-            'GET /test-ndvi-tile',
-            'POST /get-ndvi-tile-url',
-            'POST /calculate-ndvi',
-            'POST /get-ndvi-history'
-        ]
-    }), 404
-
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🚀 Starting Flask NDVI Application - DEBUG VERSION")
+    print("🚀 Starting Flask NDVI Application - FIXED PRIVATE KEY VERSION")
     print("="*60)
     print(f"✅ Earth Engine Initialized: {ee_initialized}")
     if not ee_initialized:
@@ -584,13 +621,11 @@ if __name__ == '__main__':
         print(f"📧 Service Account: {credentials_info.get('client_email', 'Unknown')}")
         print(f"📁 Project: {credentials_info.get('project_id', 'Unknown')}")
     
-    print("\n🔍 Available Endpoints:")
-    print("  GET  /health           - Basic health check")
-    print("  GET  /debug/full       - Detailed debug information") 
-    print("  GET  /test-ndvi-tile   - Test NDVI tile generation")
-    print("  POST /get-ndvi-tile-url - Generate NDVI tile URL")
-    print("  POST /calculate-ndvi   - Calculate NDVI for area")
-    print("  POST /get-ndvi-history - Get NDVI time series")
+    print("\n🔍 Debug Endpoints:")
+    print("  GET /health              - Basic health check")
+    print("  GET /debug/full          - Detailed debug information") 
+    print("  GET /debug/private-key   - Check private key formatting")
+    print("  GET /test-ndvi-tile      - Test NDVI tile generation")
     print("="*60 + "\n")
     
     app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
