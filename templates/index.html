@@ -10,6 +10,8 @@
     <link rel="stylesheet" href="https://unpkg.com/@mapbox/mapbox-gl-draw@1.4.3/dist/mapbox-gl-draw.css" type="text/css">
     <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Add Chart.js date adapter -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -257,7 +259,7 @@
         });
 
         const draw = new MapboxDraw({
-            displayControlsDefault: false, // We'll use custom controls
+            displayControlsDefault: false,
             controls: {
                 polygon: false,
                 trash: false
@@ -330,7 +332,6 @@
                     return;
                 }
                 
-                // Remove all drawn features
                 data.features.forEach(feature => {
                     draw.delete(feature.id);
                 });
@@ -342,7 +343,6 @@
                 document.getElementById('forecast-ndvi').disabled = true;
                 document.getElementById('ndvi-result').innerHTML = '<p class="success">Polygon removed successfully!</p>';
                 
-                // Clear the message after 3 seconds
                 setTimeout(() => {
                     document.getElementById('ndvi-result').innerHTML = '';
                 }, 3000);
@@ -370,7 +370,6 @@
                     forecastButton.disabled = false;
                     ndviResult.innerHTML = '<p class="success">Polygon drawn successfully!</p>';
                     
-                    // Clear the success message after 3 seconds
                     setTimeout(() => {
                         if (ndviResult.innerHTML.includes('successfully')) {
                             ndviResult.innerHTML = '';
@@ -420,24 +419,18 @@
                         })
                     });
                     
-                    console.log('Response status:', response.status);
-                    console.log('Response headers:', response.headers.get('content-type'));
-                    
                     if (!response.ok) {
                         const text = await response.text();
-                        console.error('Response text:', text);
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
                     const contentType = response.headers.get("content-type");
                     if (!contentType || !contentType.includes("application/json")) {
                         const text = await response.text();
-                        console.error('Server returned non-JSON:', text.substring(0, 200));
                         throw new Error("Server returned HTML instead of JSON. Check console for details.");
                     }
                     
                     const data = await response.json();
-                    console.log('✓ Received tile URL:', data);
                     
                     if (data.error) {
                         alert(`Error: ${data.error}`);
@@ -517,11 +510,6 @@
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
-                    const contentType = response.headers.get("content-type");
-                    if (!contentType || !contentType.includes("application/json")) {
-                        throw new Error("Server error. Check if Flask app is running and Earth Engine is authenticated.");
-                    }
-                    
                     const data = await response.json();
                     
                     if (data.error) {
@@ -580,11 +568,6 @@
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     
-                    const contentType = response.headers.get("content-type");
-                    if (!contentType || !contentType.includes("application/json")) {
-                        throw new Error("Server error. Check if Flask app is running and Earth Engine is authenticated.");
-                    }
-                    
                     const data = await response.json();
                     
                     if (data.error) {
@@ -624,7 +607,7 @@
                         body: JSON.stringify({
                             geometry: currentPolygon.geometry,
                             target_date: targetDate,
-                            periods: 12 // Forecast 12 periods (about 6 months)
+                            periods: 12
                         })
                     });
                     
@@ -663,7 +646,8 @@
                     ndviChart.destroy();
                 }
                 
-                const dates = timeSeries.map(d => d.date);
+                // Use simple labels instead of time scale to avoid date adapter issues
+                const labels = timeSeries.map(d => d.date);
                 const ndviValues = timeSeries.map(d => d.ndvi);
                 
                 const bloomDates = blooms.map(b => b.date);
@@ -672,7 +656,7 @@
                 ndviChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        labels: dates,
+                        labels: labels,
                         datasets: [
                             {
                                 label: 'NDVI',
@@ -687,7 +671,7 @@
                             },
                             {
                                 label: 'Blooming Events',
-                                data: dates.map(date => {
+                                data: labels.map(date => {
                                     const idx = bloomDates.indexOf(date);
                                     return idx !== -1 ? bloomValues[idx] : null;
                                 }),
@@ -766,53 +750,49 @@
                     ndviChart.destroy();
                 }
                 
-                // Prepare data for chart
-                const allDates = [...historical.map(d => d.date), ...forecast.map(d => d.date)];
+                // Use simple labels for both historical and forecast data
+                const historicalLabels = historical.map(d => d.date);
+                const forecastLabels = forecast.map(d => d.date);
+                const allLabels = [...historicalLabels, ...forecastLabels];
                 
-                // Create datasets
-                const datasets = [
-                    {
-                        label: 'Historical NDVI',
-                        data: historical.map(d => ({x: d.date, y: d.ndvi})),
-                        borderColor: '#2e7d32',
-                        backgroundColor: 'rgba(46, 125, 50, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        pointRadius: 3,
-                        pointHoverRadius: 5,
-                        tension: 0.4
-                    },
-                    {
-                        label: 'Forecast NDVI',
-                        data: forecast.map(d => ({x: d.date, y: d.ndvi})),
-                        borderColor: '#ff9800',
-                        backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        fill: false,
-                        pointRadius: 2,
-                        pointHoverRadius: 4,
-                        tension: 0.4
-                    }
+                const historicalData = historical.map(d => d.ndvi);
+                const forecastData = forecast.map(d => d.ndvi);
+                
+                // Create a combined dataset for the line
+                const combinedData = [
+                    ...historical.map(d => ({x: d.date, y: d.ndvi})),
+                    ...forecast.map(d => ({x: d.date, y: d.ndvi}))
                 ];
-                
-                // Add confidence interval if available
-                if (forecast[0] && forecast[0].ndvi_lower !== undefined) {
-                    datasets.push({
-                        label: 'Confidence Interval',
-                        data: forecast.map(d => ({x: d.date, y: d.ndvi})),
-                        backgroundColor: 'rgba(255, 152, 0, 0.2)',
-                        borderColor: 'rgba(255, 152, 0, 0)',
-                        fill: true,
-                        pointRadius: 0,
-                        showLine: true
-                    });
-                }
                 
                 ndviChart = new Chart(ctx, {
                     type: 'line',
                     data: {
-                        datasets: datasets
+                        labels: allLabels,
+                        datasets: [
+                            {
+                                label: 'Historical NDVI',
+                                data: historicalData,
+                                borderColor: '#2e7d32',
+                                backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                                borderWidth: 2,
+                                fill: false,
+                                pointRadius: 3,
+                                pointHoverRadius: 5,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'Forecast NDVI',
+                                data: [...Array(historicalData.length).fill(null), ...forecastData],
+                                borderColor: '#ff9800',
+                                backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 2,
+                                pointHoverRadius: 4,
+                                tension: 0.4
+                            }
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -841,13 +821,7 @@
                         },
                         scales: {
                             x: {
-                                type: 'time',
-                                time: {
-                                    unit: 'month',
-                                    displayFormats: {
-                                        month: 'MMM YYYY'
-                                    }
-                                },
+                                display: true,
                                 title: {
                                     display: true,
                                     text: 'Date'
@@ -858,6 +832,7 @@
                                 }
                             },
                             y: {
+                                display: true,
                                 title: {
                                     display: true,
                                     text: 'NDVI Value'
