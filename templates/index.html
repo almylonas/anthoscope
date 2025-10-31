@@ -28,12 +28,40 @@
       font-weight: bold;
     }
     
-    #controls select {
-      padding: 5px;
+    #controls select, #controls button {
+      padding: 8px;
       width: 100%;
       font-size: 14px;
       border: 1px solid #ccc;
       border-radius: 4px;
+      background: white;
+      cursor: pointer;
+    }
+    
+    #controls button {
+      background: #4285f4;
+      color: white;
+      border: none;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    #controls button:hover {
+      background: #3367d6;
+    }
+    
+    #controls button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    #status {
+      margin-top: 10px;
+      padding: 8px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #666;
     }
     
     #forecast-info {
@@ -100,7 +128,7 @@
 </head>
 <body>
   <div id="controls">
-    <strong>Pollen Heatmap</strong>
+    <strong>Pollen Map</strong>
     
     <label>Pollen Type</label>
     <select id="pollenType">
@@ -118,7 +146,7 @@
   </div>
   
   <div id="forecast-info" style="display: none;">
-    <strong id="forecast-title">5-Day Pollen Forecast</strong>
+    <strong id="forecast-title">Location Forecast</strong>
     <div id="forecast-content" class="loading">Click on the map...</div>
   </div>
   
@@ -139,6 +167,7 @@
     const FORECAST_API = "https://pollen.googleapis.com/v1/forecast:lookup";
     
     let map, pollenOverlay, forecastMarker;
+    let currentPollenType = 'TREE_UPI';
 
     function initMap() {
       // Center on Bonn, Germany
@@ -150,21 +179,22 @@
         mapTypeId: 'roadmap'
       });
 
-      // Create initial pollen overlay
-      updatePollenOverlay('TREE_UPI');
+      // Create initial pollen overlay (Google tiles)
+      updatePollenOverlay(currentPollenType);
 
-      // Add event listener for pollen type selector
+      // Event listeners
       document.getElementById('pollenType').addEventListener('change', function(e) {
-        updatePollenOverlay(e.target.value);
+        currentPollenType = e.target.value;
+        updatePollenOverlay(currentPollenType);
       });
       
-      // Add click listener to show forecast
+      // Add click listener to show detailed forecast
       map.addListener('click', function(e) {
-        showForecast(e.latLng.lat(), e.latLng.lng());
+        showDetailedForecast(e.latLng.lat(), e.latLng.lng());
       });
       
       // Show initial forecast for center
-      showForecast(center.lat, center.lng);
+      showDetailedForecast(center.lat, center.lng);
     }
 
     function updatePollenOverlay(pollenType) {
@@ -174,13 +204,10 @@
       // Create custom image map type for pollen heatmap tiles
       pollenOverlay = new google.maps.ImageMapType({
         getTileUrl: function(coord, zoom) {
-          // Validate coordinates for the zoom level
           const numTiles = Math.pow(2, zoom);
           if (coord.x < 0 || coord.x >= numTiles || coord.y < 0 || coord.y >= numTiles) {
             return null;
           }
-          
-          // Construct the heatmap tile URL (current day only)
           return `https://pollen.googleapis.com/v1/mapTypes/${pollenType}/heatmapTiles/${zoom}/${coord.x}/${coord.y}?key=${GOOGLE_KEY}`;
         },
         tileSize: new google.maps.Size(256, 256),
@@ -188,18 +215,16 @@
         name: 'Pollen'
       });
 
-      // Add the overlay to the map
       map.overlayMapTypes.push(pollenOverlay);
     }
     
-    async function showForecast(lat, lng) {
+    async function showDetailedForecast(lat, lng) {
       const forecastDiv = document.getElementById('forecast-info');
       const contentDiv = document.getElementById('forecast-content');
       
       forecastDiv.style.display = 'block';
       contentDiv.innerHTML = '<div class="loading">Loading forecast...</div>';
       
-      // Add or update marker
       if (forecastMarker) {
         forecastMarker.setPosition({lat, lng});
       } else {
@@ -216,12 +241,12 @@
         const data = await response.json();
         
         if (!data.dailyInfo || data.dailyInfo.length === 0) {
-          contentDiv.innerHTML = '<div>No forecast data available for this location.</div>';
+          contentDiv.innerHTML = '<div>No forecast data available.</div>';
           return;
         }
         
         let html = '<div style="margin-bottom: 10px; color: #666; font-size: 12px;">';
-        html += `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
+        html += `${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
         
         data.dailyInfo.forEach((day, index) => {
           const date = new Date(day.date.year, day.date.month - 1, day.date.day);
@@ -236,15 +261,13 @@
           
           if (day.pollenTypeInfo && day.pollenTypeInfo.length > 0) {
             day.pollenTypeInfo.forEach(pollen => {
-              if (pollen.indexInfo) {
-                const level = pollen.indexInfo.value || 0;
-                const category = pollen.indexInfo.category || 'Unknown';
-                html += `<span class="pollen-level level-${level}">`;
-                html += `${pollen.displayName}: ${category}</span>`;
-              }
+              const level = pollen.indexInfo ? (pollen.indexInfo.value || 0) : 0;
+              const category = pollen.indexInfo ? (pollen.indexInfo.category || 'None') : 'None';
+              html += `<span class="pollen-level level-${level}">`;
+              html += `${pollen.displayName}: ${category}</span>`;
             });
           } else {
-            html += '<span style="color: #999;">No data</span>';
+            html += '<span class="pollen-level level-0">No data</span>';
           }
           
           html += `</div>`;
@@ -253,8 +276,8 @@
         contentDiv.innerHTML = html;
         
       } catch (error) {
-        console.error('Error fetching forecast:', error);
-        contentDiv.innerHTML = '<div style="color: red;">Error loading forecast data.</div>';
+        console.error('Error:', error);
+        contentDiv.innerHTML = '<div style="color: red;">Error loading forecast.</div>';
       }
     }
   </script>
