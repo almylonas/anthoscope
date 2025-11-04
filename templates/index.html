@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pollen Heatmap with Forecast</title>
+  <title>Pollen Heatmap with Forecast & Reviews</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     html, body { height: 100%; margin: 0; padding: 0; }
@@ -28,40 +28,34 @@
       font-weight: bold;
     }
     
-    #controls select, #controls button {
-      padding: 8px;
+    #controls select {
+      padding: 5px;
       width: 100%;
       font-size: 14px;
       border: 1px solid #ccc;
       border-radius: 4px;
-      background: white;
-      cursor: pointer;
     }
     
     #controls button {
+      margin-top: 15px;
+      padding: 10px;
+      width: 100%;
       background: #4285f4;
       color: white;
       border: none;
-      margin-top: 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
       font-weight: bold;
     }
     
     #controls button:hover {
-      background: #3367d6;
+      background: #357ae8;
     }
     
     #controls button:disabled {
       background: #ccc;
       cursor: not-allowed;
-    }
-    
-    #status {
-      margin-top: 10px;
-      padding: 8px;
-      background: #f0f0f0;
-      border-radius: 4px;
-      font-size: 12px;
-      color: #666;
     }
     
     #forecast-info {
@@ -119,16 +113,131 @@
       color: #666;
       font-style: italic;
     }
+    
+    #review-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.5);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    #review-modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: white;
+      padding: 25px;
+      border-radius: 10px;
+      max-width: 500px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      font-family: sans-serif;
+    }
+    
+    .modal-content h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #555;
+    }
+    
+    .form-group select,
+    .form-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: sans-serif;
+    }
+    
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .checkbox-group label {
+      font-weight: normal;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+    }
+    
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .modal-buttons button {
+      flex: 1;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .btn-submit {
+      background: #4285f4;
+      color: white;
+    }
+    
+    .btn-submit:hover {
+      background: #357ae8;
+    }
+    
+    .btn-cancel {
+      background: #f1f1f1;
+      color: #333;
+    }
+    
+    .btn-cancel:hover {
+      background: #e0e0e0;
+    }
+    
+    .info-text {
+      color: #666;
+      font-size: 12px;
+      margin-top: 5px;
+    }
   </style>
 
-  <!-- Load Google Maps API -->
   <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap">
+    src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap&libraries=drawing">
   </script>
 </head>
 <body>
   <div id="controls">
-    <strong>Pollen Map</strong>
+    <strong>Pollen Heatmap</strong>
     
     <label>Pollen Type</label>
     <select id="pollenType">
@@ -136,6 +245,8 @@
       <option value="GRASS_UPI">Grass Pollen</option>
       <option value="WEED_UPI">Weed Pollen</option>
     </select>
+    
+    <button id="drawAreaBtn">Draw Area & Write Review</button>
     
     <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
       <small style="color: #666;">
@@ -146,7 +257,7 @@
   </div>
   
   <div id="forecast-info" style="display: none;">
-    <strong id="forecast-title">Location Forecast</strong>
+    <strong id="forecast-title">5-Day Pollen Forecast</strong>
     <div id="forecast-content" class="loading">Click on the map...</div>
   </div>
   
@@ -162,15 +273,72 @@
     <div><span style="color:#ff0000;">●</span> Very High (5)</div>
   </div>
 
+  <!-- Review Modal -->
+  <div id="review-modal">
+    <div class="modal-content">
+      <h2>Write Allergy Review</h2>
+      
+      <div class="form-group">
+        <label>Area Selected:</label>
+        <div id="area-info" class="info-text"></div>
+      </div>
+      
+      <div class="form-group">
+        <label for="review-pollen-type">Pollen Type You're Allergic To:</label>
+        <select id="review-pollen-type">
+          <option value="Tree">Tree Pollen</option>
+          <option value="Grass">Grass Pollen</option>
+          <option value="Weed">Weed Pollen</option>
+          <option value="Multiple">Multiple Types</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label for="severity">Severity of Allergy:</label>
+        <select id="severity">
+          <option value="Mild">Mild</option>
+          <option value="Moderate">Moderate</option>
+          <option value="Severe">Severe</option>
+          <option value="Very Severe">Very Severe</option>
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Symptoms (select all that apply):</label>
+        <div class="checkbox-group">
+          <label><input type="checkbox" value="Sneezing"> Sneezing</label>
+          <label><input type="checkbox" value="Runny Nose"> Runny Nose</label>
+          <label><input type="checkbox" value="Itchy Eyes"> Itchy Eyes</label>
+          <label><input type="checkbox" value="Watery Eyes"> Watery Eyes</label>
+          <label><input type="checkbox" value="Congestion"> Congestion</label>
+          <label><input type="checkbox" value="Coughing"> Coughing</label>
+          <label><input type="checkbox" value="Breathing Difficulty"> Breathing Difficulty</label>
+          <label><input type="checkbox" value="Skin Rash"> Skin Rash</label>
+          <label><input type="checkbox" value="None"> None</label>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label for="review-text">Additional Comments (Optional):</label>
+        <textarea id="review-text" placeholder="Share your experience with pollen allergies in this area..."></textarea>
+      </div>
+      
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeReviewModal()">Cancel</button>
+        <button class="btn-submit" onclick="submitReview()">Submit Review</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const GOOGLE_KEY = "{{ google_api_key }}";
     const FORECAST_API = "https://pollen.googleapis.com/v1/forecast:lookup";
     
-    let map, pollenOverlay, forecastMarker;
-    let currentPollenType = 'TREE_UPI';
+    let map, pollenOverlay, forecastMarker, drawingManager;
+    let currentCircle = null;
+    let isDrawingMode = false;
 
     function initMap() {
-      // Center on Bonn, Germany
       const center = { lat: 50.7374, lng: 7.0982 };
       
       map = new google.maps.Map(document.getElementById("map"), {
@@ -179,29 +347,53 @@
         mapTypeId: 'roadmap'
       });
 
-      // Create initial pollen overlay (Google tiles)
-      updatePollenOverlay(currentPollenType);
+      updatePollenOverlay('TREE_UPI');
 
-      // Event listeners
       document.getElementById('pollenType').addEventListener('change', function(e) {
-        currentPollenType = e.target.value;
-        updatePollenOverlay(currentPollenType);
+        updatePollenOverlay(e.target.value);
       });
       
-      // Add click listener to show detailed forecast
       map.addListener('click', function(e) {
-        showDetailedForecast(e.latLng.lat(), e.latLng.lng());
+        if (!isDrawingMode) {
+          showForecast(e.latLng.lat(), e.latLng.lng());
+        }
       });
       
-      // Show initial forecast for center
-      showDetailedForecast(center.lat, center.lng);
+      // Initialize DrawingManager
+      drawingManager = new google.maps.drawing.DrawingManager({
+        drawingMode: null,
+        drawingControl: false,
+        circleOptions: {
+          fillColor: '#4285f4',
+          fillOpacity: 0.3,
+          strokeWeight: 2,
+          strokeColor: '#4285f4',
+          clickable: false,
+          editable: true,
+          zIndex: 1
+        }
+      });
+      
+      google.maps.event.addListener(drawingManager, 'circlecomplete', function(circle) {
+        if (currentCircle) {
+          currentCircle.setMap(null);
+        }
+        currentCircle = circle;
+        drawingManager.setDrawingMode(null);
+        isDrawingMode = false;
+        document.getElementById('drawAreaBtn').textContent = 'Draw Area & Write Review';
+        openReviewModal(circle);
+      });
+      
+      document.getElementById('drawAreaBtn').addEventListener('click', toggleDrawingMode);
+      
+      showForecast(center.lat, center.lng);
+      loadExistingReviews();
     }
 
     function updatePollenOverlay(pollenType) {
-      // Clear all existing overlays
       map.overlayMapTypes.clear();
 
-      // Create custom image map type for pollen heatmap tiles
       pollenOverlay = new google.maps.ImageMapType({
         getTileUrl: function(coord, zoom) {
           const numTiles = Math.pow(2, zoom);
@@ -218,7 +410,131 @@
       map.overlayMapTypes.push(pollenOverlay);
     }
     
-    async function showDetailedForecast(lat, lng) {
+    function toggleDrawingMode() {
+      if (isDrawingMode) {
+        drawingManager.setMap(null);
+        isDrawingMode = false;
+        document.getElementById('drawAreaBtn').textContent = 'Draw Area & Write Review';
+      } else {
+        drawingManager.setMap(map);
+        drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
+        isDrawingMode = true;
+        document.getElementById('drawAreaBtn').textContent = 'Cancel Drawing';
+      }
+    }
+    
+    function openReviewModal(circle) {
+      const center = circle.getCenter();
+      const radius = circle.getRadius() / 1000; // Convert to km
+      
+      document.getElementById('area-info').textContent = 
+        `Center: ${center.lat().toFixed(4)}, ${center.lng().toFixed(4)} | Radius: ${radius.toFixed(2)} km`;
+      
+      document.getElementById('review-modal').classList.add('active');
+    }
+    
+    function closeReviewModal() {
+      document.getElementById('review-modal').classList.remove('active');
+      if (currentCircle) {
+        currentCircle.setMap(null);
+        currentCircle = null;
+      }
+      // Reset form
+      document.getElementById('review-text').value = '';
+      document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => cb.checked = false);
+    }
+    
+    async function submitReview() {
+      if (!currentCircle) return;
+      
+      const center = currentCircle.getCenter();
+      const radius = currentCircle.getRadius() / 1000;
+      const pollenType = document.getElementById('review-pollen-type').value;
+      const severity = document.getElementById('severity').value;
+      const reviewText = document.getElementById('review-text').value;
+      
+      // Get selected symptoms
+      const symptoms = [];
+      document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked').forEach(cb => {
+        symptoms.push(cb.value);
+      });
+      
+      const reviewData = {
+        centerLat: center.lat(),
+        centerLng: center.lng(),
+        radiusKm: radius,
+        pollenType: pollenType,
+        severity: severity,
+        symptoms: symptoms,
+        reviewText: reviewText
+      };
+      
+      try {
+        const response = await fetch('/api/reviews', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(reviewData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          alert('Review submitted successfully!');
+          closeReviewModal();
+          loadExistingReviews();
+        } else {
+          alert('Error submitting review: ' + result.error);
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Error submitting review. Please try again.');
+      }
+    }
+    
+    async function loadExistingReviews() {
+      try {
+        const response = await fetch('/api/reviews');
+        const result = await response.json();
+        
+        if (result.success && result.reviews) {
+          result.reviews.forEach(review => {
+            const circle = new google.maps.Circle({
+              center: { lat: review.center_lat, lng: review.center_lng },
+              radius: review.radius_km * 1000,
+              fillColor: '#ff6b6b',
+              fillOpacity: 0.15,
+              strokeWeight: 1,
+              strokeColor: '#ff6b6b',
+              map: map,
+              clickable: true
+            });
+            
+            const infoWindow = new google.maps.InfoWindow({
+              content: `
+                <div style="font-family: sans-serif; max-width: 200px;">
+                  <strong>Allergy Review</strong><br>
+                  <strong>Pollen:</strong> ${review.pollen_type}<br>
+                  <strong>Severity:</strong> ${review.severity}<br>
+                  <strong>Symptoms:</strong> ${review.symptoms.length > 0 ? review.symptoms.join(', ') : 'None'}<br>
+                  ${review.review_text ? `<br><em>"${review.review_text}"</em>` : ''}
+                </div>
+              `
+            });
+            
+            circle.addListener('click', function(e) {
+              infoWindow.setPosition(e.latLng);
+              infoWindow.open(map);
+            });
+          });
+        }
+      } catch (error) {
+        console.error('Error loading reviews:', error);
+      }
+    }
+    
+    async function showForecast(lat, lng) {
       const forecastDiv = document.getElementById('forecast-info');
       const contentDiv = document.getElementById('forecast-content');
       
@@ -241,12 +557,12 @@
         const data = await response.json();
         
         if (!data.dailyInfo || data.dailyInfo.length === 0) {
-          contentDiv.innerHTML = '<div>No forecast data available.</div>';
+          contentDiv.innerHTML = '<div>No forecast data available for this location.</div>';
           return;
         }
         
         let html = '<div style="margin-bottom: 10px; color: #666; font-size: 12px;">';
-        html += `${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
+        html += `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
         
         data.dailyInfo.forEach((day, index) => {
           const date = new Date(day.date.year, day.date.month - 1, day.date.day);
@@ -261,13 +577,15 @@
           
           if (day.pollenTypeInfo && day.pollenTypeInfo.length > 0) {
             day.pollenTypeInfo.forEach(pollen => {
-              const level = pollen.indexInfo ? (pollen.indexInfo.value || 0) : 0;
-              const category = pollen.indexInfo ? (pollen.indexInfo.category || 'None') : 'None';
-              html += `<span class="pollen-level level-${level}">`;
-              html += `${pollen.displayName}: ${category}</span>`;
+              if (pollen.indexInfo) {
+                const level = pollen.indexInfo.value || 0;
+                const category = pollen.indexInfo.category || 'Unknown';
+                html += `<span class="pollen-level level-${level}">`;
+                html += `${pollen.displayName}: ${category}</span>`;
+              }
             });
           } else {
-            html += '<span class="pollen-level level-0">No data</span>';
+            html += '<span style="color: #999;">No data</span>';
           }
           
           html += `</div>`;
@@ -276,8 +594,8 @@
         contentDiv.innerHTML = html;
         
       } catch (error) {
-        console.error('Error:', error);
-        contentDiv.innerHTML = '<div style="color: red;">Error loading forecast.</div>';
+        console.error('Error fetching forecast:', error);
+        contentDiv.innerHTML = '<div style="color: red;">Error loading forecast data.</div>';
       }
     }
   </script>
