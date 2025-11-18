@@ -3,6 +3,9 @@
 <head>
   <title>Pollen Heatmap with Forecast & Reviews</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     html, body { height: 100%; margin: 0; padding: 0; }
     #map { height: 100%; width: 100%; }
@@ -11,10 +14,13 @@
       position: absolute;
       top: 20px;
       left: 20px;
-      background: white;
+      background: rgba(255, 0, 114, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.5);
       padding: 15px;
       border-radius: 10px;
-      font-family: sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-size: 14px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
       z-index: 1000;
@@ -62,10 +68,13 @@
       position: absolute;
       top: 20px;
       right: 20px;
-      background: white;
+      background: rgba(255, 0, 114, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.3);
       padding: 15px;
       border-radius: 10px;
-      font-family: sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-size: 13px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
       z-index: 1000;
@@ -101,10 +110,13 @@
       position: absolute;
       bottom: 20px;
       left: 20px;
-      background: white;
+      background: rgba(255, 0, 114, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.3);
       padding: 10px;
       border-radius: 10px;
-      font-family: sans-serif;
+      font-family: 'Montserrat', sans-serif;
       font-size: 14px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
     }
@@ -132,14 +144,17 @@
     }
     
     .modal-content {
-      background: white;
+      background: rgba(255, 0, 114, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.3);
       padding: 25px;
       border-radius: 10px;
       max-width: 500px;
       width: 90%;
       max-height: 90vh;
       overflow-y: auto;
-      font-family: sans-serif;
+      font-family: 'Montserrat', sans-serif;
     }
     
     .modal-content h2 {
@@ -165,7 +180,7 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       font-size: 14px;
-      font-family: sans-serif;
+      font-family: 'Montserrat', sans-serif;
     }
     
     .form-group textarea {

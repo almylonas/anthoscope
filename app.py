@@ -7,7 +7,6 @@ from datetime import datetime
 app = Flask(__name__)
 
 # Load Google API key from environment variable (recommended)
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "key")
 
 # Database configuration
 DB_CONFIG = {
