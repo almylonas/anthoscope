@@ -171,7 +171,7 @@
     
     .modal-content h2 {
       margin-top: 0;
-      color: #333;
+      color: white;
     }
     
     .form-group {
@@ -182,7 +182,7 @@
       display: block;
       margin-bottom: 5px;
       font-weight: bold;
-      color: #555;
+      color: white;
     }
     
     .form-group select,
@@ -252,7 +252,7 @@
     }
     
     .info-text {
-      color: #666;
+      color: white;
       font-size: 17px;
       margin-top: 5px;
     }
@@ -453,10 +453,10 @@
         drawingMode: null,
         drawingControl: false,
         circleOptions: {
-          fillColor: '#4285f4',
+          fillColor: 'rgba(200, 0, 90, 0.5)',
           fillOpacity: 0.3,
           strokeWeight: 2,
-          strokeColor: '#4285f4',
+          strokeColor: 'rgba(200, 0, 90, 0.8)',
           clickable: false,
           editable: true,
           zIndex: 1
@@ -589,38 +589,82 @@
         
         if (result.success && result.reviews) {
           result.reviews.forEach(review => {
-            const circle = new google.maps.Circle({
-              center: { lat: review.center_lat, lng: review.center_lng },
-              radius: review.radius_km * 1000,
-              fillColor: '#ff6b6b',
-              fillOpacity: 0.15,
-              strokeWeight: 1,
-              strokeColor: '#ff6b6b',
+            const marker = new google.maps.Marker({
+              position: { lat: review.center_lat, lng: review.center_lng },
               map: map,
+              icon: {
+                url: '/static/point.png',
+                scaledSize: new google.maps.Size(40, 40)
+              },
               clickable: true
             });
             
-            const infoWindow = new google.maps.InfoWindow({
-              content: `
-                <div style="font-family: sans-serif; max-width: 200px;">
-                  <strong>Allergy Review</strong><br>
-                  <strong>Pollen:</strong> ${review.pollen_type}<br>
-                  <strong>Severity:</strong> ${review.severity}<br>
-                  <strong>Symptoms:</strong> ${review.symptoms.length > 0 ? review.symptoms.join(', ') : 'None'}<br>
-                  ${review.review_text ? `<br><em>"${review.review_text}"</em>` : ''}
-                </div>
-              `
-            });
-            
-            circle.addListener('click', function(e) {
-              infoWindow.setPosition(e.latLng);
-              infoWindow.open(map);
+            marker.addListener('click', function() {
+              showReviewDetails(review);
             });
           });
         }
       } catch (error) {
         console.error('Error loading reviews:', error);
       }
+    }
+    
+    let reviewCircle = null;
+    let reviewInfoWindow = null;
+    
+    function showReviewDetails(review) {
+      // Remove previous circle and info window if exists
+      if (reviewCircle) {
+        reviewCircle.setMap(null);
+      }
+      if (reviewInfoWindow) {
+        reviewInfoWindow.close();
+      }
+      
+      // Create circle to show the reviewed area
+      reviewCircle = new google.maps.Circle({
+        center: { lat: review.center_lat, lng: review.center_lng },
+        radius: review.radius_km * 1000,
+        fillColor: 'rgba(200, 0, 90, 0.5)',
+        fillOpacity: 0.2,
+        strokeWeight: 2,
+        strokeColor: 'rgba(200, 0, 90, 0.8)',
+        map: map,
+        clickable: false
+      });
+      
+      // Create styled info window
+      reviewInfoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="font-family: 'Montserrat', sans-serif; background: rgba(255, 0, 114, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 114, 0.5); padding: 20px; border-radius: 10px; min-width: 300px; max-width: 450px;">
+            <h3 style="margin-top: 0; color: rgba(200, 0, 90, 1); font-size: 21px;">Allergy Review</h3>
+            <div style="margin-bottom: 10px; color: #666; font-size: 14px;">
+              <strong>Location:</strong> ${review.center_lat.toFixed(4)}, ${review.center_lng.toFixed(4)}<br>
+              <strong>Area Radius:</strong> ${review.radius_km.toFixed(2)} km
+            </div>
+            <p style="margin: 8px 0;"><strong style="color: #333;">Pollen Type:</strong> <span style="color: #555;">${review.pollen_type}</span></p>
+            <p style="margin: 8px 0;"><strong style="color: #333;">Severity:</strong> <span style="color: #555;">${review.severity}</span></p>
+            <p style="margin: 8px 0;"><strong style="color: #333;">Symptoms:</strong> <span style="color: #555;">${review.symptoms.length > 0 ? review.symptoms.join(', ') : 'None'}</span></p>
+            ${review.review_text ? `<p style="margin: 12px 0 0 0; padding-top: 10px; border-top: 1px solid rgba(200, 0, 90, 0.3); font-style: italic; color: #444;">"${review.review_text}"</p>` : ''}
+          </div>
+        `,
+        position: { lat: review.center_lat, lng: review.center_lng }
+      });
+      
+      reviewInfoWindow.open(map);
+      
+      // Close circle and info window when clicking elsewhere
+      const closeListener = google.maps.event.addListener(map, 'click', function() {
+        if (reviewCircle) {
+          reviewCircle.setMap(null);
+          reviewCircle = null;
+        }
+        if (reviewInfoWindow) {
+          reviewInfoWindow.close();
+          reviewInfoWindow = null;
+        }
+        google.maps.event.removeListener(closeListener);
+      });
     }
     
     async function showForecast(lat, lng) {
