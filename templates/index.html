@@ -1,14 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Pollen Heatmap with Forecast & Reviews</title>
+  <title>Anthoscope</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; }
-    #map { height: 100%; width: 100%; }
+    * {
+      cursor: url('/static/cursor.png'), auto !important;
+    }
+    
+    html, body { 
+      height: 100%; 
+      margin: 0; 
+      padding: 0;
+    }
+    #map { 
+      height: 100%; 
+      width: 100%;
+    }
     
     #controls {
       position: absolute;
@@ -18,13 +29,13 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 0, 114, 0.5);
-      padding: 15px;
+      padding: 22px;
       border-radius: 10px;
       font-family: 'Montserrat', sans-serif;
-      font-size: 14px;
+      font-size: 21px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
       z-index: 1000;
-      max-width: 250px;
+      max-width: 375px;
     }
     
     #controls label {
@@ -35,28 +46,28 @@
     }
     
     #controls select {
-      padding: 5px;
+      padding: 8px;
       width: 100%;
-      font-size: 14px;
+      font-size: 21px;
       border: 1px solid #ccc;
       border-radius: 4px;
     }
     
     #controls button {
       margin-top: 15px;
-      padding: 10px;
+      padding: 15px;
       width: 100%;
-      background: #4285f4;
+      background: rgba(200, 0, 90, 0.8);
       color: white;
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 21px;
       font-weight: bold;
     }
     
     #controls button:hover {
-      background: #357ae8;
+      background: rgba(180, 0, 80, 0.9);
     }
     
     #controls button:disabled {
@@ -72,30 +83,30 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 0, 114, 0.3);
-      padding: 15px;
+      padding: 22px;
       border-radius: 10px;
       font-family: 'Montserrat', sans-serif;
-      font-size: 13px;
+      font-size: 19px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
       z-index: 1000;
-      max-width: 300px;
+      max-width: 450px;
       max-height: 80vh;
       overflow-y: auto;
     }
     
     .forecast-day {
       margin: 10px 0;
-      padding: 10px;
-      border-left: 4px solid #4285f4;
-      background: #f8f9fa;
+      padding: 15px;
+      border-left: 4px solid rgba(200, 0, 90, 0.8);
+      background: rgba(248, 249, 250, 0.9);
     }
     
     .pollen-level {
       display: inline-block;
-      padding: 2px 8px;
+      padding: 3px 12px;
       border-radius: 3px;
       margin: 2px;
-      font-size: 11px;
+      font-size: 16px;
       font-weight: bold;
     }
     
@@ -114,10 +125,10 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       border: 1px solid rgba(255, 0, 114, 0.3);
-      padding: 10px;
+      padding: 15px;
       border-radius: 10px;
       font-family: 'Montserrat', sans-serif;
-      font-size: 14px;
+      font-size: 21px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
     }
     
@@ -155,6 +166,7 @@
       max-height: 90vh;
       overflow-y: auto;
       font-family: 'Montserrat', sans-serif;
+      font-size: 19px;
     }
     
     .modal-content h2 {
@@ -179,7 +191,7 @@
       padding: 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
-      font-size: 14px;
+      font-size: 19px;
       font-family: 'Montserrat', sans-serif;
     }
     
@@ -213,21 +225,21 @@
     
     .modal-buttons button {
       flex: 1;
-      padding: 10px;
+      padding: 15px;
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 19px;
       font-weight: bold;
     }
     
     .btn-submit {
-      background: #4285f4;
+      background: rgba(200, 0, 90, 0.8);
       color: white;
     }
     
     .btn-submit:hover {
-      background: #357ae8;
+      background: rgba(180, 0, 80, 0.9);
     }
     
     .btn-cancel {
@@ -241,7 +253,7 @@
     
     .info-text {
       color: #666;
-      font-size: 12px;
+      font-size: 17px;
       margin-top: 5px;
     }
   </style>
@@ -359,7 +371,69 @@
       map = new google.maps.Map(document.getElementById("map"), {
         center: center,
         zoom: 6,
-        mapTypeId: 'roadmap'
+        mapTypeId: 'roadmap',
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false,
+        styles: [
+          {
+            "elementType": "geometry",
+            "stylers": [{"color": "#ffe0ee"}]
+          },
+          {
+            "elementType": "labels.text.fill",
+            "stylers": [{"color": "#cc0066"}]
+          },
+          {
+            "elementType": "labels.text.stroke",
+            "stylers": [{"color": "#ffffff"}]
+          },
+          {
+            "featureType": "administrative",
+            "elementType": "geometry.stroke",
+            "stylers": [{"color": "#ff0072"}]
+          },
+          {
+            "featureType": "administrative.country",
+            "elementType": "geometry.stroke",
+            "stylers": [{"color": "#dd0066"}, {"weight": 2}]
+          },
+          {
+            "featureType": "administrative.province",
+            "elementType": "geometry.stroke",
+            "stylers": [{"color": "#ff3388"}]
+          },
+          {
+            "featureType": "landscape",
+            "elementType": "geometry",
+            "stylers": [{"color": "#fff0f7"}]
+          },
+          {
+            "featureType": "poi",
+            "elementType": "geometry",
+            "stylers": [{"color": "#ffe6f0"}]
+          },
+          {
+            "featureType": "road",
+            "elementType": "geometry",
+            "stylers": [{"color": "#ffccdd"}]
+          },
+          {
+            "featureType": "road.highway",
+            "elementType": "geometry",
+            "stylers": [{"color": "#ffb3cc"}]
+          },
+          {
+            "featureType": "road.highway",
+            "elementType": "geometry.stroke",
+            "stylers": [{"color": "#ff99bb"}]
+          },
+          {
+            "featureType": "water",
+            "elementType": "geometry",
+            "stylers": [{"color": "#e0f0ff"}]
+          }
+        ]
       });
 
       updatePollenOverlay('TREE_UPI');
@@ -597,6 +671,10 @@
                 const category = pollen.indexInfo.category || 'Unknown';
                 html += `<span class="pollen-level level-${level}">`;
                 html += `${pollen.displayName}: ${category}</span>`;
+              } else {
+                // Show "None" when there's no index info for this pollen type
+                html += `<span class="pollen-level level-0">`;
+                html += `${pollen.displayName}: None</span>`;
               }
             });
           } else {
