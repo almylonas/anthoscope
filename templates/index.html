@@ -667,6 +667,35 @@
       });
     }
     
+    // Health advice helper mapped to UPI and species-specific add-ons
+    function getHealthAdvice(upi, speciesCode) {
+      const base = {
+        0: "No symptoms expected. You can safely spend time outside.",
+        1: "Symptoms unlikely. Sensitive individuals may notice mild irritation; keep medication available.",
+        2: "Minor symptoms possible (itchy eyes, light sneezing). Keep windows closed at night; shower after outdoor activity.",
+        3: "Noticeable symptoms likely for allergic individuals. Limit outdoor exercise; use antihistamines; use HEPA filtration indoors.",
+        4: "Strong symptoms for most allergic individuals. Avoid prolonged outdoor activity; wear a mask outdoors (FFP2/N95); keep windows closed; use air purifier.",
+        5: "Severe symptoms expected. Stay indoors as much as possible; use AC+filtration; take prescribed medication; asthmatics keep inhaler accessible."
+      }[upi] || "No advice available.";
+
+      const extras = {
+        BIRCH: " Rapid symptom onset in dry mornings.",
+        HAZEL: " Early-spring reactions common.",
+        ALDER: " May trigger strong eye symptoms.",
+        OAK: " Keep car vents on recirculation when driving.",
+        MAPLE: " Avoid forest-path jogging during peak.",
+        RAGWEED: " Highly allergenic — avoid outdoor running 5–10 AM.",
+        MUGWORT: " Cross-reactive with celery & spices; avoid those if sensitive.",
+        GRAMINALES: " Avoid freshly mowed lawns.",
+        OLIVE: " Nasal rinsing recommended to reduce buildup.",
+        CYPRESS_PINE: " Sticky pollen; affects sinuses strongly.",
+        JAPANESE_CEDAR: " Wear a mask outdoors during peak.",
+        JUNIPER: " Can trigger asthma-like symptoms; keep inhaler handy."
+      }[speciesCode] || "";
+
+      return base + extras;
+    }
+
     async function showForecast(lat, lng) {
       const forecastDiv = document.getElementById('forecast-info');
       const contentDiv = document.getElementById('forecast-content');
@@ -708,6 +737,7 @@
           html += `<div class="forecast-day">`;
           html += `<strong>${index === 0 ? 'Today' : dateStr}</strong><br>`;
           
+          // Pollen type info (TREE/GRASS/WEED)
           if (day.pollenTypeInfo && day.pollenTypeInfo.length > 0) {
             day.pollenTypeInfo.forEach(pollen => {
               if (pollen.indexInfo) {
@@ -716,13 +746,31 @@
                 html += `<span class="pollen-level level-${level}">`;
                 html += `${pollen.displayName}: ${category}</span>`;
               } else {
-                // Show "None" when there's no index info for this pollen type
                 html += `<span class="pollen-level level-0">`;
                 html += `${pollen.displayName}: None</span>`;
               }
             });
           } else {
-            html += '<span style="color: #999;">No data</span>';
+            html += '<span style="color: #999;">No pollen type data</span>';
+          }
+
+          // Species / plantInfo breakdown (if available)
+          if (day.plantInfo && day.plantInfo.length > 0) {
+            html += `<div style="margin-top:8px"><strong>Species Breakdown:</strong></div>`;
+            day.plantInfo.forEach(species => {
+              const level = species.indexInfo?.value || 0;
+              const category = species.indexInfo?.category || 'None';
+
+              html += `<div style="margin-top:6px">`;
+              html += `<span class="pollen-level level-${level}">`;
+              html += `${species.displayName}: ${category}</span>`;
+
+              // Append concise health advice preview (short)
+              const advicePreview = getHealthAdvice(level, species.code);
+              html += `<div style="font-size:14px; margin-left:10px; color:#555;">${advicePreview}</div>`;
+
+              html += `</div>`;
+            });
           }
           
           html += `</div>`;
