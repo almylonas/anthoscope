@@ -256,6 +256,45 @@
       font-size: 17px;
       margin-top: 5px;
     }
+    
+    /* New styles for species breakdown toggle */
+    .species-toggle {
+      background: rgba(200, 0, 90, 0.8);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 6px 12px;
+      margin-top: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    
+    .species-toggle:hover {
+      background: rgba(180, 0, 80, 0.9);
+    }
+    
+    .species-breakdown {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(200, 0, 90, 0.3);
+      display: none;
+    }
+    
+    .species-breakdown.show {
+      display: block;
+    }
+    
+    .species-item {
+      margin-top: 6px;
+    }
+    
+    .health-advice {
+      font-size: 14px;
+      margin-left: 10px;
+      color: #555;
+      margin-top: 4px;
+    }
   </style>
 
   <script async defer
@@ -696,6 +735,20 @@
       return base + extras;
     }
 
+    // Toggle species breakdown visibility
+    function toggleSpeciesBreakdown(dayIndex) {
+      const breakdown = document.getElementById(`species-breakdown-${dayIndex}`);
+      const button = document.getElementById(`species-toggle-${dayIndex}`);
+      
+      if (breakdown.classList.contains('show')) {
+        breakdown.classList.remove('show');
+        button.textContent = 'Show Species Breakdown';
+      } else {
+        breakdown.classList.add('show');
+        button.textContent = 'Hide Species Breakdown';
+      }
+    }
+
     async function showForecast(lat, lng) {
       const forecastDiv = document.getElementById('forecast-info');
       const contentDiv = document.getElementById('forecast-content');
@@ -756,21 +809,26 @@
 
           // Species / plantInfo breakdown (if available)
           if (day.plantInfo && day.plantInfo.length > 0) {
-            html += `<div style="margin-top:8px"><strong>Species Breakdown:</strong></div>`;
+            html += `<button id="species-toggle-${index}" class="species-toggle" onclick="toggleSpeciesBreakdown(${index})">Show Species Breakdown</button>`;
+            html += `<div id="species-breakdown-${index}" class="species-breakdown">`;
+            html += `<strong>Species Breakdown:</strong>`;
+            
             day.plantInfo.forEach(species => {
               const level = species.indexInfo?.value || 0;
               const category = species.indexInfo?.category || 'None';
 
-              html += `<div style="margin-top:6px">`;
+              html += `<div class="species-item">`;
               html += `<span class="pollen-level level-${level}">`;
               html += `${species.displayName}: ${category}</span>`;
 
               // Append concise health advice preview (short)
               const advicePreview = getHealthAdvice(level, species.code);
-              html += `<div style="font-size:14px; margin-left:10px; color:#555;">${advicePreview}</div>`;
+              html += `<div class="health-advice">${advicePreview}</div>`;
 
               html += `</div>`;
             });
+            
+            html += `</div>`;
           }
           
           html += `</div>`;
