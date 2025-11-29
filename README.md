@@ -7,3 +7,4 @@ The team behind Anthoscope:
 - **Nikos Chatzis,** Aristotle University of Thessaloniki
 - **Georgios Vellios,** International Hellenic University
 - **Maria Maragkou,** Technical University of Madrid
+- **Grigoris Kaitzis,** Aristotle University of Thessaloniki
