@@ -295,13 +295,152 @@
       color: #555;
       margin-top: 4px;
     }
+    
+    /* Search Box Styles */
+    #search-box-container {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 500px;
+      max-width: 80%;
+      z-index: 1000;
+      background: rgba(255, 0, 114, 0.15);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.5);
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      padding: 10px;
+    }
+    
+    #search-box {
+      width: 100%;
+      padding: 15px;
+      font-size: 18px;
+      font-family: 'Montserrat', sans-serif;
+      border: 1px solid rgba(255, 0, 114, 0.5);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.9);
+      box-sizing: border-box;
+      color: #333;
+    }
+    
+    #search-box:focus {
+      outline: none;
+      border-color: rgba(200, 0, 90, 0.8);
+      box-shadow: 0 0 8px rgba(200, 0, 90, 0.3);
+    }
+    
+    #search-box::placeholder {
+      color: #666;
+    }
+    
+    #search-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid rgba(255, 0, 114, 0.3);
+      border-radius: 0 0 10px 10px;
+      margin-top: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+      display: none;
+      z-index: 1001;
+    }
+    
+    .search-result-item {
+      padding: 12px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid rgba(0,0,0,0.1);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 16px;
+      color: #333;
+    }
+    
+    .search-result-item:hover {
+      background: rgba(200, 0, 90, 0.1);
+    }
+    
+    .search-result-item:last-child {
+      border-bottom: none;
+    }
+    
+    .search-result-item .address {
+      font-size: 14px;
+      color: #666;
+      margin-top: 4px;
+    }
+    
+    .search-loading {
+      padding: 15px;
+      text-align: center;
+      color: #666;
+      font-style: italic;
+    }
+    
+    .search-error {
+      padding: 15px;
+      text-align: center;
+      color: #ff0000;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      #search-box-container {
+        width: 400px;
+      }
+    }
+    
+    @media (max-width: 768px) {
+      #search-box-container {
+        width: 300px;
+        top: 10px;
+      }
+      
+      #controls, #forecast-info, #legend {
+        font-size: 18px;
+      }
+      
+      #controls {
+        max-width: 300px;
+      }
+      
+      #forecast-info {
+        max-width: 350px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      #search-box-container {
+        width: 250px;
+      }
+      
+      #search-box {
+        padding: 12px;
+        font-size: 16px;
+      }
+    }
   </style>
 
   <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap&libraries=drawing">
+    src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap&libraries=drawing,places">
   </script>
 </head>
 <body>
+  <!-- Search Box -->
+  <div id="search-box-container">
+    <input 
+      id="search-box" 
+      type="text" 
+      placeholder="Search for a location (city, address, or landmark)..."
+      autocomplete="off"
+    >
+    <div id="search-results"></div>
+  </div>
+  
   <div id="controls">
     <strong>Pollen Heatmap</strong>
     
@@ -403,6 +542,9 @@
     let map, pollenOverlay, forecastMarker, drawingManager;
     let currentCircle = null;
     let isDrawingMode = false;
+    let searchBox, searchResults;
+    let placesService, autocompleteService;
+    let searchTimeout = null;
 
     function initMap() {
       const center = { lat: 50.7374, lng: 7.0982 };
@@ -475,6 +617,9 @@
         ]
       });
 
+      // Initialize search functionality
+      initSearch();
+
       updatePollenOverlay('TREE_UPI');
 
       document.getElementById('pollenType').addEventListener('change', function(e) {
@@ -517,6 +662,179 @@
       
       showForecast(center.lat, center.lng);
       loadExistingReviews();
+    }
+
+    function initSearch() {
+      searchBox = document.getElementById('search-box');
+      searchResults = document.getElementById('search-results');
+      
+      // Initialize Places services
+      placesService = new google.maps.places.PlacesService(map);
+      autocompleteService = new google.maps.places.AutocompleteService();
+      
+      // Add input event listener for search
+      searchBox.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        
+        if (query.length < 2) {
+          hideSearchResults();
+          return;
+        }
+        
+        // Clear previous timeout
+        if (searchTimeout) {
+          clearTimeout(searchTimeout);
+        }
+        
+        // Set new timeout to avoid too many API calls
+        searchTimeout = setTimeout(() => {
+          performSearch(query);
+        }, 300);
+      });
+      
+      // Add click listener to hide results when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!searchBox.contains(e.target) && !searchResults.contains(e.target)) {
+          hideSearchResults();
+        }
+      });
+      
+      // Handle Enter key press
+      searchBox.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const query = searchBox.value.trim();
+          if (query) {
+            performSearch(query, true); // Force geocode for exact search
+          }
+        }
+      });
+    }
+
+    function performSearch(query, forceGeocode = false) {
+      // Show loading state
+      searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
+      searchResults.style.display = 'block';
+      
+      if (forceGeocode) {
+        // Use Geocoding API for exact location search
+        const geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: query }, function(results, status) {
+          if (status === 'OK' && results[0]) {
+            displayGeocodeResults(results);
+          } else {
+            searchResults.innerHTML = '<div class="search-error">Location not found</div>';
+          }
+        });
+      } else {
+        // Use Places Autocomplete for suggestions
+        autocompleteService.getPlacePredictions(
+          { input: query, types: ['geocode'] },
+          function(predictions, status) {
+            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+              displayAutocompleteResults(predictions);
+            } else {
+              // Fallback to geocoding if autocomplete fails
+              const geocoder = new google.maps.Geocoder();
+              geocoder.geocode({ address: query }, function(results, status) {
+                if (status === 'OK' && results[0]) {
+                  displayGeocodeResults(results);
+                } else {
+                  searchResults.innerHTML = '<div class="search-error">No results found</div>';
+                }
+              });
+            }
+          }
+        );
+      }
+    }
+
+    function displayAutocompleteResults(predictions) {
+      searchResults.innerHTML = '';
+      
+      predictions.forEach((prediction, index) => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'search-result-item';
+        resultItem.innerHTML = `
+          <strong>${prediction.structured_formatting.main_text}</strong>
+          <div class="address">${prediction.structured_formatting.secondary_text || ''}</div>
+        `;
+        
+        resultItem.addEventListener('click', function() {
+          getPlaceDetails(prediction.place_id);
+        });
+        
+        searchResults.appendChild(resultItem);
+      });
+      
+      if (predictions.length === 0) {
+        searchResults.innerHTML = '<div class="search-error">No results found</div>';
+      }
+    }
+
+    function displayGeocodeResults(results) {
+      searchResults.innerHTML = '';
+      
+      results.forEach((result, index) => {
+        const resultItem = document.createElement('div');
+        resultItem.className = 'search-result-item';
+        resultItem.innerHTML = `
+          <strong>${result.formatted_address}</strong>
+        `;
+        
+        resultItem.addEventListener('click', function() {
+          selectLocationFromSearch(result.geometry.location, result.formatted_address);
+        });
+        
+        searchResults.appendChild(resultItem);
+      });
+      
+      // Auto-select first result if there's only one
+      if (results.length === 1) {
+        selectLocationFromSearch(results[0].geometry.location, results[0].formatted_address);
+      }
+    }
+
+    function getPlaceDetails(placeId) {
+      placesService.getDetails({ placeId: placeId }, function(place, status) {
+        if (status === google.maps.places.PlacesServiceStatus.OK) {
+          selectLocationFromSearch(place.geometry.location, place.formatted_address);
+        } else {
+          searchResults.innerHTML = '<div class="search-error">Error loading location details</div>';
+        }
+      });
+    }
+
+    function selectLocationFromSearch(location, address) {
+      const lat = location.lat();
+      const lng = location.lng();
+      
+      // Update search box with selected address
+      searchBox.value = address;
+      hideSearchResults();
+      
+      // Pan and zoom map to location
+      map.panTo({ lat, lng });
+      map.setZoom(12);
+      
+      // Show forecast for the selected location
+      showForecast(lat, lng);
+      
+      // Add a marker for the searched location
+      if (forecastMarker) {
+        forecastMarker.setPosition({ lat, lng });
+      } else {
+        forecastMarker = new google.maps.Marker({
+          position: { lat, lng },
+          map: map,
+          title: address,
+          animation: google.maps.Animation.DROP
+        });
+      }
+    }
+
+    function hideSearchResults() {
+      searchResults.style.display = 'none';
     }
 
     function updatePollenOverlay(pollenType) {
