@@ -442,7 +442,14 @@
   </div>
   
   <div id="controls">
-    <strong>Pollen Heatmap</strong>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+      <strong>Pollen Heatmap</strong>
+      <select id="regionSelect" style="padding: 6px 10px; font-size: 16px; border: 1px solid rgba(255,0,114,0.5); border-radius: 6px; background: rgba(255,255,255,0.9); font-family: 'Montserrat', sans-serif; font-weight: 600; color: #333; cursor: pointer;">
+        <option value="europe">🌍 Europe</option>
+        <option value="usa">🇺🇸 USA</option>
+        <option value="japan">🇯🇵 Japan</option>
+      </select>
+    </div>
     
     <label>Pollen Type</label>
     <select id="pollenType">
@@ -538,6 +545,30 @@
   <script>
     const GOOGLE_KEY = "{{ google_api_key }}";
     const FORECAST_API = "https://pollen.googleapis.com/v1/forecast:lookup";
+
+    // Supported region bounds
+    const REGIONS = {
+      europe: {
+        label: 'Europe',
+        center: { lat: 51.0, lng: 10.0 },
+        zoom: 5,
+        bounds: { west: -25.0, east: 45.0, south: 30.0, north: 72.0 }
+      },
+      usa: {
+        label: 'USA',
+        center: { lat: 37.0, lng: -96.0 },
+        zoom: 4,
+        bounds: { west: -125.0, east: -66.0, south: 24.0, north: 49.0 }
+      },
+      japan: {
+        label: 'Japan',
+        center: { lat: 37.0, lng: 138.0 },
+        zoom: 5,
+        bounds: { west: 122.9, east: 154.0, south: 20.4, north: 45.5 }
+      }
+    };
+
+    let currentRegion = 'europe';
     
     let map, pollenOverlay, forecastMarker, drawingManager;
     let currentCircle = null;
@@ -546,16 +577,46 @@
     let placesService, autocompleteService;
     let searchTimeout = null;
 
+    function isLocationInAnyRegion(lat, lng) {
+      for (const key in REGIONS) {
+        const b = REGIONS[key].bounds;
+        if (lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function applyRegionRestriction(regionKey) {
+      currentRegion = regionKey;
+      const region = REGIONS[regionKey];
+      const b = region.bounds;
+      const latLngBounds = new google.maps.LatLngBounds(
+        new google.maps.LatLng(b.south, b.west),
+        new google.maps.LatLng(b.north, b.east)
+      );
+      map.setOptions({ restriction: { latLngBounds: latLngBounds, strictBounds: true } });
+      map.panTo(region.center);
+      map.setZoom(region.zoom);
+    }
+
     function initMap() {
-      const center = { lat: 50.7374, lng: 7.0982 };
+      const center = { lat: 51.0, lng: 10.0 };
       
       map = new google.maps.Map(document.getElementById("map"), {
         center: center,
-        zoom: 6,
+        zoom: 5,
         mapTypeId: 'roadmap',
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false,
+        restriction: {
+          latLngBounds: new google.maps.LatLngBounds(
+            new google.maps.LatLng(30.0, -25.0),
+            new google.maps.LatLng(72.0, 45.0)
+          ),
+          strictBounds: true
+        },
         styles: [
           {
             "elementType": "geometry",
@@ -619,6 +680,11 @@
 
       // Initialize search functionality
       initSearch();
+
+      // Region selector
+      document.getElementById('regionSelect').addEventListener('change', function(e) {
+        applyRegionRestriction(e.target.value);
+      });
 
       updatePollenOverlay('TREE_UPI');
 
@@ -750,32 +816,65 @@
     }
 
     function displayAutocompleteResults(predictions) {
-      searchResults.innerHTML = '';
+      searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
       
-      predictions.forEach((prediction, index) => {
-        const resultItem = document.createElement('div');
-        resultItem.className = 'search-result-item';
-        resultItem.innerHTML = `
-          <strong>${prediction.structured_formatting.main_text}</strong>
-          <div class="address">${prediction.structured_formatting.secondary_text || ''}</div>
-        `;
-        
-        resultItem.addEventListener('click', function() {
-          getPlaceDetails(prediction.place_id);
-        });
-        
-        searchResults.appendChild(resultItem);
-      });
+      // Geocode each prediction to validate bounds
+      const geocoder = new google.maps.Geocoder();
+      const validItems = [];
+      let pending = predictions.length;
       
-      if (predictions.length === 0) {
+      if (pending === 0) {
         searchResults.innerHTML = '<div class="search-error">No results found</div>';
+        return;
       }
+      
+      predictions.forEach((prediction) => {
+        geocoder.geocode({ placeId: prediction.place_id }, function(results, status) {
+          if (status === 'OK' && results[0]) {
+            const loc = results[0].geometry.location;
+            if (isLocationInAnyRegion(loc.lat(), loc.lng())) {
+              validItems.push({ prediction, place: results[0] });
+            }
+          }
+          pending--;
+          if (pending === 0) {
+            // All geocodes done — render
+            searchResults.innerHTML = '';
+            if (validItems.length === 0) {
+              searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
+              return;
+            }
+            validItems.forEach(({ prediction, place }) => {
+              const resultItem = document.createElement('div');
+              resultItem.className = 'search-result-item';
+              resultItem.innerHTML = `
+                <strong>${prediction.structured_formatting.main_text}</strong>
+                <div class="address">${prediction.structured_formatting.secondary_text || ''}</div>
+              `;
+              resultItem.addEventListener('click', function() {
+                selectLocationFromSearch(place.geometry.location, place.formatted_address);
+              });
+              searchResults.appendChild(resultItem);
+            });
+          }
+        });
+      });
     }
 
     function displayGeocodeResults(results) {
       searchResults.innerHTML = '';
       
-      results.forEach((result, index) => {
+      const validResults = results.filter(result => {
+        const loc = result.geometry.location;
+        return isLocationInAnyRegion(loc.lat(), loc.lng());
+      });
+      
+      if (validResults.length === 0) {
+        searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
+        return;
+      }
+      
+      validResults.forEach((result, index) => {
         const resultItem = document.createElement('div');
         resultItem.className = 'search-result-item';
         resultItem.innerHTML = `
@@ -790,8 +889,8 @@
       });
       
       // Auto-select first result if there's only one
-      if (results.length === 1) {
-        selectLocationFromSearch(results[0].geometry.location, results[0].formatted_address);
+      if (validResults.length === 1) {
+        selectLocationFromSearch(validResults[0].geometry.location, validResults[0].formatted_address);
       }
     }
 
@@ -808,6 +907,13 @@
     function selectLocationFromSearch(location, address) {
       const lat = location.lat();
       const lng = location.lng();
+      
+      // Check if location is within any supported region
+      if (!isLocationInAnyRegion(lat, lng)) {
+        searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
+        searchResults.style.display = 'block';
+        return;
+      }
       
       // Update search box with selected address
       searchBox.value = address;
