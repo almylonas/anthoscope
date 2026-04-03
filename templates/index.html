@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
   <style>
     * {
       cursor: url('/static/cursor.png'), auto !important;
@@ -38,6 +39,10 @@
       max-width: 375px;
     }
     
+    #regionSelect, #regionSelect option {
+      font-family: 'Noto Color Emoji', 'Montserrat', sans-serif !important;
+    }
+
     #controls label {
       display: block;
       margin-top: 10px;
@@ -423,6 +428,15 @@
         font-size: 16px;
       }
     }
+    @font-face {
+      font-family: NotoColorEmojiLimited;
+      unicode-range: U+1F1E6-1F1FF;
+      src: url(https://raw.githack.com/googlefonts/noto-emoji/main/fonts/NotoColorEmoji.ttf);
+    }
+
+    div {
+      font-family: 'Montserrat', 'Noto Color Emoji', sans-serif;
+    }
   </style>
 
   <script async defer
@@ -445,10 +459,10 @@
     <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
       <strong>Pollen Heatmap</strong>
       <select id="regionSelect" style="padding: 6px 10px; font-size: 16px; border: 1px solid rgba(255,0,114,0.5); border-radius: 6px; background: rgba(255,255,255,0.9); font-family: 'Montserrat', sans-serif; font-weight: 600; color: #333; cursor: pointer;">
-        <option value="europe">🌍 Europe</option>
-        <option value="usa">🇺🇸 USA</option>
-        <option value="japan">🇯🇵 Japan</option>
-        <option value="australia">🇦🇺 Australia</option>
+      <option value="europe">🇪🇺 Europe</option>
+      <option value="usa">🇺🇸 USA</option>
+      <option value="japan">🇯🇵 Japan</option>
+      <option value="australia">🇦🇺 Australia</option>
       </select>
     </div>
     
