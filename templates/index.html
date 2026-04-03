@@ -448,6 +448,7 @@
         <option value="europe">🌍 Europe</option>
         <option value="usa">🇺🇸 USA</option>
         <option value="japan">🇯🇵 Japan</option>
+        <option value="australia">🇦🇺 Australia</option>
       </select>
     </div>
     
@@ -565,6 +566,12 @@
         center: { lat: 37.0, lng: 138.0 },
         zoom: 5,
         bounds: { west: 122.9, east: 154.0, south: 20.4, north: 45.5 }
+      },
+      australia: {
+        label: 'Australia',
+        center: { lat: -27.0, lng: 133.0 },
+        zoom: 4,
+        bounds: { west: 112.9, east: 153.6, south: -43.6, north: -10.7 }
       }
     };
 
@@ -578,13 +585,17 @@
     let searchTimeout = null;
 
     function isLocationInAnyRegion(lat, lng) {
+      return getRegionForLocation(lat, lng) !== null;
+    }
+
+    function getRegionForLocation(lat, lng) {
       for (const key in REGIONS) {
         const b = REGIONS[key].bounds;
         if (lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east) {
-          return true;
+          return key;
         }
       }
-      return false;
+      return null;
     }
 
     function applyRegionRestriction(regionKey) {
@@ -909,26 +920,49 @@
       const lng = location.lng();
       
       // Check if location is within any supported region
-      if (!isLocationInAnyRegion(lat, lng)) {
+      const targetRegion = getRegionForLocation(lat, lng);
+      if (!targetRegion) {
         searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
         searchResults.style.display = 'block';
         return;
+      }
+      
+      // If the location is in a different region, switch to that region first
+      if (targetRegion !== currentRegion) {
+        // Temporarily remove restriction so we can pan freely
+        map.setOptions({ restriction: null });
+        // Update dropdown to reflect new region
+        document.getElementById('regionSelect').value = targetRegion;
+        currentRegion = targetRegion;
+        // Apply the new region's bounds restriction
+        const region = REGIONS[targetRegion];
+        const b = region.bounds;
+        map.setOptions({
+          restriction: {
+            latLngBounds: new google.maps.LatLngBounds(
+              new google.maps.LatLng(b.south, b.west),
+              new google.maps.LatLng(b.north, b.east)
+            ),
+            strictBounds: true
+          }
+        });
       }
       
       // Update search box with selected address
       searchBox.value = address;
       hideSearchResults();
       
-      // Pan and zoom map to location
+      // Pan and zoom map to location (pin level)
       map.panTo({ lat, lng });
       map.setZoom(12);
       
       // Show forecast for the selected location
       showForecast(lat, lng);
       
-      // Add a marker for the searched location
+      // Add/move marker for the searched location
       if (forecastMarker) {
         forecastMarker.setPosition({ lat, lng });
+        forecastMarker.setAnimation(google.maps.Animation.DROP);
       } else {
         forecastMarker = new google.maps.Marker({
           position: { lat, lng },
