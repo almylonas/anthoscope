@@ -135,6 +135,29 @@
       font-family: 'Montserrat', sans-serif;
       font-size: 21px;
       box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+
+    /* Clickable Logo Positioning - Next to Legend */
+    #external-logo-link {
+      position: absolute;
+      bottom: 15px;
+      /* Distance from left: Legend width (~200px) + offset */
+      left: 270px; 
+      z-index: 1000;
+      transition: transform 0.2s ease;
+    }
+
+    #external-logo-link:hover {
+      transform: scale(1.05);
+    }
+
+    .clickable-logo {
+      width: 80px; /* Original size from first prompt */
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      cursor: pointer;
     }
     
     .loading {
@@ -262,7 +285,6 @@
       margin-top: 5px;
     }
     
-    /* New styles for species breakdown toggle */
     .species-toggle {
       background: rgba(200, 0, 90, 0.8);
       color: white;
@@ -301,7 +323,6 @@
       margin-top: 4px;
     }
     
-    /* Search Box Styles */
     #search-box-container {
       position: absolute;
       top: 20px;
@@ -392,7 +413,6 @@
       color: #ff0000;
     }
     
-    /* Responsive adjustments */
     @media (max-width: 1200px) {
       #search-box-container {
         width: 400px;
@@ -415,6 +435,13 @@
       
       #forecast-info {
         max-width: 350px;
+      }
+
+      /* Adjust logo position on mobile so it doesn't overlap or go off-screen */
+      #external-logo-link {
+        left: auto;
+        right: 20px;
+        bottom: 20px;
       }
     }
     
@@ -444,7 +471,6 @@
   </script>
 </head>
 <body>
-  <!-- Search Box -->
   <div id="search-box-container">
     <input 
       id="search-box" 
@@ -500,7 +526,10 @@
     <div><span style="color:#ff0000;">●</span> Very High (5)</div>
   </div>
 
-  <!-- Review Modal -->
+  <a id="external-logo-link" href="https://your-link-here.com" target="_blank">
+    <img src="/static/mini.png" class="clickable-logo" alt="Anthoscope Logo">
+  </a>
+
   <div id="review-modal">
     <div class="modal-content">
       <h2>Write Allergy Review</h2>
@@ -561,7 +590,6 @@
     const GOOGLE_KEY = "{{ google_api_key }}";
     const FORECAST_API = "https://pollen.googleapis.com/v1/forecast:lookup";
 
-    // Supported region bounds
     const REGIONS = {
       europe: {
         label: 'Europe',
@@ -703,10 +731,8 @@
         ]
       });
 
-      // Initialize search functionality
       initSearch();
 
-      // Region selector
       document.getElementById('regionSelect').addEventListener('change', function(e) {
         applyRegionRestriction(e.target.value);
       });
@@ -723,7 +749,6 @@
         }
       });
       
-      // Initialize DrawingManager
       drawingManager = new google.maps.drawing.DrawingManager({
         drawingMode: null,
         drawingControl: false,
@@ -759,11 +784,9 @@
       searchBox = document.getElementById('search-box');
       searchResults = document.getElementById('search-results');
       
-      // Initialize Places services
       placesService = new google.maps.places.PlacesService(map);
       autocompleteService = new google.maps.places.AutocompleteService();
       
-      // Add input event listener for search
       searchBox.addEventListener('input', function(e) {
         const query = e.target.value.trim();
         
@@ -772,43 +795,37 @@
           return;
         }
         
-        // Clear previous timeout
         if (searchTimeout) {
           clearTimeout(searchTimeout);
         }
         
-        // Set new timeout to avoid too many API calls
         searchTimeout = setTimeout(() => {
           performSearch(query);
         }, 300);
       });
       
-      // Add click listener to hide results when clicking outside
       document.addEventListener('click', function(e) {
         if (!searchBox.contains(e.target) && !searchResults.contains(e.target)) {
           hideSearchResults();
         }
       });
       
-      // Handle Enter key press
       searchBox.addEventListener('keydown', function(e) {
         if (e.key === 'Enter') {
           e.preventDefault();
           const query = searchBox.value.trim();
           if (query) {
-            performSearch(query, true); // Force geocode for exact search
+            performSearch(query, true);
           }
         }
       });
     }
 
     function performSearch(query, forceGeocode = false) {
-      // Show loading state
       searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
       searchResults.style.display = 'block';
       
       if (forceGeocode) {
-        // Use Geocoding API for exact location search
         const geocoder = new google.maps.Geocoder();
         geocoder.geocode({ address: query }, function(results, status) {
           if (status === 'OK' && results[0]) {
@@ -818,14 +835,12 @@
           }
         });
       } else {
-        // Use Places Autocomplete for suggestions
         autocompleteService.getPlacePredictions(
           { input: query, types: ['geocode'] },
           function(predictions, status) {
             if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
               displayAutocompleteResults(predictions);
             } else {
-              // Fallback to geocoding if autocomplete fails
               const geocoder = new google.maps.Geocoder();
               geocoder.geocode({ address: query }, function(results, status) {
                 if (status === 'OK' && results[0]) {
@@ -843,7 +858,6 @@
     function displayAutocompleteResults(predictions) {
       searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
       
-      // Geocode each prediction to validate bounds
       const geocoder = new google.maps.Geocoder();
       const validItems = [];
       let pending = predictions.length;
@@ -863,7 +877,6 @@
           }
           pending--;
           if (pending === 0) {
-            // All geocodes done — render
             searchResults.innerHTML = '';
             if (validItems.length === 0) {
               searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
@@ -913,27 +926,15 @@
         searchResults.appendChild(resultItem);
       });
       
-      // Auto-select first result if there's only one
       if (validResults.length === 1) {
         selectLocationFromSearch(validResults[0].geometry.location, validResults[0].formatted_address);
       }
-    }
-
-    function getPlaceDetails(placeId) {
-      placesService.getDetails({ placeId: placeId }, function(place, status) {
-        if (status === google.maps.places.PlacesServiceStatus.OK) {
-          selectLocationFromSearch(place.geometry.location, place.formatted_address);
-        } else {
-          searchResults.innerHTML = '<div class="search-error">Error loading location details</div>';
-        }
-      });
     }
 
     function selectLocationFromSearch(location, address) {
       const lat = location.lat();
       const lng = location.lng();
       
-      // Check if location is within any supported region
       const targetRegion = getRegionForLocation(lat, lng);
       if (!targetRegion) {
         searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
@@ -941,14 +942,10 @@
         return;
       }
       
-      // If the location is in a different region, switch to that region first
       if (targetRegion !== currentRegion) {
-        // Temporarily remove restriction so we can pan freely
         map.setOptions({ restriction: null });
-        // Update dropdown to reflect new region
         document.getElementById('regionSelect').value = targetRegion;
         currentRegion = targetRegion;
-        // Apply the new region's bounds restriction
         const region = REGIONS[targetRegion];
         const b = region.bounds;
         map.setOptions({
@@ -962,18 +959,14 @@
         });
       }
       
-      // Update search box with selected address
       searchBox.value = address;
       hideSearchResults();
       
-      // Pan and zoom map to location (pin level)
       map.panTo({ lat, lng });
       map.setZoom(12);
       
-      // Show forecast for the selected location
       showForecast(lat, lng);
       
-      // Add/move marker for the searched location
       if (forecastMarker) {
         forecastMarker.setPosition({ lat, lng });
         forecastMarker.setAnimation(google.maps.Animation.DROP);
@@ -1025,7 +1018,7 @@
     
     function openReviewModal(circle) {
       const center = circle.getCenter();
-      const radius = circle.getRadius() / 1000; // Convert to km
+      const radius = circle.getRadius() / 1000;
       
       document.getElementById('area-info').textContent = 
         `Center: ${center.lat().toFixed(4)}, ${center.lng().toFixed(4)} | Radius: ${radius.toFixed(2)} km`;
@@ -1039,7 +1032,6 @@
         currentCircle.setMap(null);
         currentCircle = null;
       }
-      // Reset form
       document.getElementById('review-text').value = '';
       document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => cb.checked = false);
     }
@@ -1053,7 +1045,6 @@
       const severity = document.getElementById('severity').value;
       const reviewText = document.getElementById('review-text').value;
       
-      // Get selected symptoms
       const symptoms = [];
       document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked').forEach(cb => {
         symptoms.push(cb.value);
@@ -1124,7 +1115,6 @@
     let reviewInfoWindow = null;
     
     function showReviewDetails(review) {
-      // Remove previous circle and info window if exists
       if (reviewCircle) {
         reviewCircle.setMap(null);
       }
@@ -1132,7 +1122,6 @@
         reviewInfoWindow.close();
       }
       
-      // Create circle to show the reviewed area
       reviewCircle = new google.maps.Circle({
         center: { lat: review.center_lat, lng: review.center_lng },
         radius: review.radius_km * 1000,
@@ -1144,7 +1133,6 @@
         clickable: false
       });
       
-      // Create styled info window
       reviewInfoWindow = new google.maps.InfoWindow({
         content: `
           <div style="font-family: 'Montserrat', sans-serif; background: rgba(255, 0, 114, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 114, 0.5); padding: 20px; border-radius: 10px; min-width: 300px; max-width: 450px;">
@@ -1164,7 +1152,6 @@
       
       reviewInfoWindow.open(map);
       
-      // Close circle and info window when clicking elsewhere
       const closeListener = google.maps.event.addListener(map, 'click', function() {
         if (reviewCircle) {
           reviewCircle.setMap(null);
@@ -1178,7 +1165,6 @@
       });
     }
     
-    // Health advice helper mapped to UPI and species-specific add-ons
     function getHealthAdvice(upi, speciesCode) {
       const base = {
         0: "No symptoms expected. You can safely spend time outside.",
@@ -1207,7 +1193,6 @@
       return base + extras;
     }
 
-    // Toggle species breakdown visibility
     function toggleSpeciesBreakdown(dayIndex) {
       const breakdown = document.getElementById(`species-breakdown-${dayIndex}`);
       const button = document.getElementById(`species-toggle-${dayIndex}`);
@@ -1262,7 +1247,6 @@
           html += `<div class="forecast-day">`;
           html += `<strong>${index === 0 ? 'Today' : dateStr}</strong><br>`;
           
-          // Pollen type info (TREE/GRASS/WEED)
           if (day.pollenTypeInfo && day.pollenTypeInfo.length > 0) {
             day.pollenTypeInfo.forEach(pollen => {
               if (pollen.indexInfo) {
@@ -1279,7 +1263,6 @@
             html += '<span style="color: #999;">No pollen type data</span>';
           }
 
-          // Species / plantInfo breakdown (if available)
           if (day.plantInfo && day.plantInfo.length > 0) {
             html += `<button id="species-toggle-${index}" class="species-toggle" onclick="toggleSpeciesBreakdown(${index})">Show Species Breakdown</button>`;
             html += `<div id="species-breakdown-${index}" class="species-breakdown">`;
@@ -1293,7 +1276,6 @@
               html += `<span class="pollen-level level-${level}">`;
               html += `${species.displayName}: ${category}</span>`;
 
-              // Append concise health advice preview (short)
               const advicePreview = getHealthAdvice(level, species.code);
               html += `<div class="health-advice">${advicePreview}</div>`;
 
