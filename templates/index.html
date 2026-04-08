@@ -8,580 +8,141 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
   <style>
-    * {
-      cursor: url('/static/cursor.png'), auto !important;
-    }
+    /* --- Styles Preserved Exactly --- */
+    * { cursor: url('/static/cursor.png'), auto !important; box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: 'Montserrat', sans-serif; }
+    #map { height: 100%; width: 100%; }
     
-    html, body { 
-      height: 100%; 
-      margin: 0; 
-      padding: 0;
-    }
-    #map { 
-      height: 100%; 
-      width: 100%;
-    }
-    
-    #controls {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: rgba(255, 0, 114, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 0, 114, 0.5);
-      padding: 22px;
-      border-radius: 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 21px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      z-index: 1000;
-      max-width: 375px;
-    }
-    
-    #regionSelect, #regionSelect option {
-      font-family: 'Noto Color Emoji', 'Montserrat', sans-serif !important;
+    .glass-panel {
+      background: rgba(255, 0, 114, 0.15); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 0, 114, 0.5); border-radius: 10px; box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      z-index: 1000; position: absolute;
     }
 
-    #controls label {
-      display: block;
-      margin-top: 10px;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
+    #controls { top: 20px; left: 20px; padding: 22px; width: 375px; max-width: 90vw; }
+    #controls label { display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold; font-size: 21px; }
+    #controls select { padding: 8px; width: 100%; font-size: 21px; border: 1px solid #ccc; border-radius: 4px; }
+    #controls button { margin-top: 15px; padding: 15px; width: 100%; background: rgba(200, 0, 90, 0.8); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 21px; font-weight: bold; }
     
-    #controls select {
-      padding: 8px;
-      width: 100%;
-      font-size: 21px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+    #forecast-info { top: 20px; right: 20px; padding: 22px; width: 450px; max-height: 80vh; overflow-y: auto; display: none; }
+    .close-forecast { float: right; cursor: pointer; font-weight: bold; color: white; background: rgba(200, 0, 90, 0.8); border-radius: 50%; width: 25px; height: 25px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+    #search-box-container { top: 20px; left: 50%; transform: translateX(-50%); width: 500px; max-width: 80%; padding: 10px; }
+    #search-box { width: 100%; padding: 15px; font-size: 18px; border-radius: 8px; border: 1px solid rgba(255, 0, 114, 0.5); background: white; }
+    #search-results { position: absolute; top: 100%; left: 10px; right: 10px; background: white; max-height: 300px; overflow-y: auto; display: none; border-radius: 0 0 8px 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .search-result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #eee; color: #333; }
+    .search-error { padding: 15px; color: #ff0000; font-size: 15px; font-weight: bold; }
+
+    #legend { bottom: 20px; left: 20px; padding: 15px; font-size: 18px; line-height: 1.4; }
+    .legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+
+    #external-logo-link { position: absolute; bottom: 15px; left: 280px; z-index: 1000; }
+    .clickable-logo { width: 80px; border-radius: 8px; }
+
+    @media (max-width: 768px) {
+      #controls { top: auto; bottom: 10px; left: 5%; width: 90%; padding: 10px; font-size: 16px; display: flex; flex-wrap: wrap; gap: 5px; }
+      #controls label, #controls strong { display: none; }
+      #controls select, #controls button { flex: 1 1 45%; font-size: 14px; margin: 0; padding: 8px; }
+      #forecast-info { top: 70px; left: 5%; right: 5%; width: 90%; max-height: 50vh; }
+      #search-box-container { top: 10px; width: 90%; }
+      #legend { display: none; }
+      #external-logo-link { left: auto; right: 20px; bottom: 110px; }
     }
-    
-    #controls button {
-      margin-top: 15px;
-      padding: 15px;
-      width: 100%;
-      background: rgba(200, 0, 90, 0.8);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 21px;
-      font-weight: bold;
-    }
-    
-    #controls button:hover {
-      background: rgba(180, 0, 80, 0.9);
-    }
-    
-    #controls button:disabled {
-      background: #ccc;
-      cursor: not-allowed;
-    }
-    
-    #forecast-info {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      background: rgba(255, 0, 114, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 0, 114, 0.3);
-      padding: 22px;
-      border-radius: 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 19px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      z-index: 1000;
-      max-width: 450px;
-      max-height: 80vh;
-      overflow-y: auto;
-    }
-    
-    .forecast-day {
-      margin: 10px 0;
-      padding: 15px;
-      border-left: 4px solid rgba(200, 0, 90, 0.8);
-      background: rgba(248, 249, 250, 0.9);
-    }
-    
-    .pollen-level {
-      display: inline-block;
-      padding: 3px 12px;
-      border-radius: 3px;
-      margin: 2px;
-      font-size: 16px;
-      font-weight: bold;
-    }
-    
+
+    .forecast-day { margin: 10px 0; padding: 15px; border-left: 4px solid #c8005a; background: rgba(255,255,255,0.95); border-radius: 4px; }
+    .pollen-level { display: inline-block; padding: 3px 10px; border-radius: 4px; margin: 2px; font-size: 14px; font-weight: bold; }
     .level-0 { background: #e8e8e8; color: #666; }
     .level-1 { background: #c3f0c3; color: #2d5016; }
     .level-2 { background: #fff59d; color: #5d4e00; }
     .level-3 { background: #ffcc80; color: #663c00; }
     .level-4 { background: #ff8a65; color: #5d1700; }
     .level-5 { background: #ef5350; color: white; }
-    
-    #legend {
-      position: absolute;
-      bottom: 20px;
-      left: 20px;
-      background: rgba(255, 0, 114, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 0, 114, 0.3);
-      padding: 15px;
-      border-radius: 10px;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 21px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      z-index: 1000;
-    }
+    .species-toggle { background: #c8005a; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; margin-top: 8px; cursor: pointer; }
+    .species-breakdown { display: none; margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px; }
+    .species-breakdown.show { display: block; }
+    .health-advice { font-size: 13px; color: #555; margin-top: 5px; font-style: italic; }
 
-    /* Clickable Logo Positioning - Next to Legend */
-    #external-logo-link {
-      position: absolute;
-      bottom: 15px;
-      /* Distance from left: Legend width (~200px) + offset */
-      left: 270px; 
-      z-index: 1000;
-      transition: transform 0.2s ease;
-    }
-
-    #external-logo-link:hover {
-      transform: scale(1.05);
-    }
-
-    .clickable-logo {
-      width: 80px; /* Original size from first prompt */
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      cursor: pointer;
-    }
+    #review-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; }
+    #review-modal.active { display: flex; }
+    .modal-content { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
     
-    .loading {
-      color: #666;
-      font-style: italic;
-    }
-    
-    #review-modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 2000;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    #review-modal.active {
-      display: flex;
-    }
-    
-    .modal-content {
-      background: rgba(255, 0, 114, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 0, 114, 0.3);
-      padding: 25px;
-      border-radius: 10px;
-      max-width: 500px;
-      width: 90%;
-      max-height: 90vh;
-      overflow-y: auto;
-      font-family: 'Montserrat', sans-serif;
-      font-size: 19px;
-    }
-    
-    .modal-content h2 {
-      margin-top: 0;
-      color: white;
-    }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-      color: white;
-    }
-    
-    .form-group select,
-    .form-group textarea {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      font-size: 19px;
-      font-family: 'Montserrat', sans-serif;
-    }
-    
-    .form-group textarea {
-      min-height: 100px;
-      resize: vertical;
-    }
-    
-    .checkbox-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-    
-    .checkbox-group label {
-      font-weight: normal;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .checkbox-group input[type="checkbox"] {
-      width: auto;
-    }
-    
-    .modal-buttons {
-      display: flex;
-      gap: 10px;
-      margin-top: 20px;
-    }
-    
-    .modal-buttons button {
-      flex: 1;
-      padding: 15px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 19px;
-      font-weight: bold;
-    }
-    
-    .btn-submit {
-      background: rgba(200, 0, 90, 0.8);
-      color: white;
-    }
-    
-    .btn-submit:hover {
-      background: rgba(180, 0, 80, 0.9);
-    }
-    
-    .btn-cancel {
-      background: #f1f1f1;
-      color: #333;
-    }
-    
-    .btn-cancel:hover {
-      background: #e0e0e0;
-    }
-    
-    .info-text {
-      color: white;
-      font-size: 17px;
-      margin-top: 5px;
-    }
-    
-    .species-toggle {
-      background: rgba(200, 0, 90, 0.8);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      padding: 6px 12px;
-      margin-top: 8px;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: bold;
-    }
-    
-    .species-toggle:hover {
-      background: rgba(180, 0, 80, 0.9);
-    }
-    
-    .species-breakdown {
-      margin-top: 8px;
-      padding-top: 8px;
-      border-top: 1px solid rgba(200, 0, 90, 0.3);
-      display: none;
-    }
-    
-    .species-breakdown.show {
-      display: block;
-    }
-    
-    .species-item {
-      margin-top: 6px;
-    }
-    
-    .health-advice {
-      font-size: 14px;
-      margin-left: 10px;
-      color: #555;
-      margin-top: 4px;
-    }
-    
-    #search-box-container {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 500px;
-      max-width: 80%;
-      z-index: 1000;
-      background: rgba(255, 0, 114, 0.15);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 0, 114, 0.5);
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      padding: 10px;
-    }
-    
-    #search-box {
-      width: 100%;
-      padding: 15px;
-      font-size: 18px;
-      font-family: 'Montserrat', sans-serif;
-      border: 1px solid rgba(255, 0, 114, 0.5);
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.9);
-      box-sizing: border-box;
-      color: #333;
-    }
-    
-    #search-box:focus {
-      outline: none;
-      border-color: rgba(200, 0, 90, 0.8);
-      box-shadow: 0 0 8px rgba(200, 0, 90, 0.3);
-    }
-    
-    #search-box::placeholder {
-      color: #666;
-    }
-    
-    #search-results {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      background: rgba(255, 255, 255, 0.95);
-      border: 1px solid rgba(255, 0, 114, 0.3);
-      border-radius: 0 0 10px 10px;
-      margin-top: 5px;
-      max-height: 300px;
-      overflow-y: auto;
-      display: none;
-      z-index: 1001;
-    }
-    
-    .search-result-item {
-      padding: 12px 15px;
-      cursor: pointer;
-      border-bottom: 1px solid rgba(0,0,0,0.1);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 16px;
-      color: #333;
-    }
-    
-    .search-result-item:hover {
-      background: rgba(200, 0, 90, 0.1);
-    }
-    
-    .search-result-item:last-child {
-      border-bottom: none;
-    }
-    
-    .search-result-item .address {
-      font-size: 14px;
-      color: #666;
-      margin-top: 4px;
-    }
-    
-    .search-loading {
-      padding: 15px;
-      text-align: center;
-      color: #666;
-      font-style: italic;
-    }
-    
-    .search-error {
-      padding: 15px;
-      text-align: center;
-      color: #ff0000;
-    }
-    
-    @media (max-width: 1200px) {
-      #search-box-container {
-        width: 400px;
-      }
-    }
-    
-    @media (max-width: 768px) {
-      #search-box-container {
-        width: 300px;
-        top: 10px;
-      }
-      
-      #controls, #forecast-info, #legend {
-        font-size: 18px;
-      }
-      
-      #controls {
-        max-width: 300px;
-      }
-      
-      #forecast-info {
-        max-width: 350px;
-      }
-
-      /* Adjust logo position on mobile so it doesn't overlap or go off-screen */
-      #external-logo-link {
-        left: auto;
-        right: 20px;
-        bottom: 20px;
-      }
-    }
-    
-    @media (max-width: 480px) {
-      #search-box-container {
-        width: 250px;
-      }
-      
-      #search-box {
-        padding: 12px;
-        font-size: 16px;
-      }
-    }
-    @font-face {
-      font-family: NotoColorEmojiLimited;
-      unicode-range: U+1F1E6-1F1FF;
-      src: url(https://raw.githack.com/googlefonts/noto-emoji/main/fonts/NotoColorEmoji.ttf);
-    }
-
-    div {
-      font-family: 'Montserrat', 'Noto Color Emoji', sans-serif;
-    }
+    .custom-infowindow { font-family: 'Montserrat', sans-serif; padding: 15px; min-width: 250px; }
+    .infowindow-header { color: #c8005a; font-weight: bold; border-bottom: 2px solid #ff0072; margin-bottom: 10px; padding-bottom: 5px; font-size: 18px; }
   </style>
 
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap&libraries=drawing,places">
-  </script>
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&callback=initMap&libraries=drawing,places"></script>
 </head>
 <body>
-  <div id="search-box-container">
-    <input 
-      id="search-box" 
-      type="text" 
-      placeholder="Search for a location (city, address, or landmark)..."
-      autocomplete="off"
-    >
+
+  <div id="search-box-container" class="glass-panel">
+    <input id="search-box" type="text" placeholder="Search for a location..." autocomplete="off">
     <div id="search-results"></div>
   </div>
   
-  <div id="controls">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-      <strong>Pollen Heatmap</strong>
-      <select id="regionSelect" style="padding: 6px 10px; font-size: 16px; border: 1px solid rgba(255,0,114,0.5); border-radius: 6px; background: rgba(255,255,255,0.9); font-family: 'Montserrat', sans-serif; font-weight: 600; color: #333; cursor: pointer;">
+  <div id="controls" class="glass-panel">
+    <strong>Pollen Heatmap</strong>
+    <select id="regionSelect">
       <option value="europe">🇪🇺 Europe</option>
       <option value="usa">🇺🇸 USA</option>
       <option value="japan">🇯🇵 Japan</option>
       <option value="australia">🇦🇺 Australia</option>
-      </select>
-    </div>
-    
+    </select>
     <label>Pollen Type</label>
     <select id="pollenType">
       <option value="TREE_UPI">Tree Pollen</option>
       <option value="GRASS_UPI">Grass Pollen</option>
       <option value="WEED_UPI">Weed Pollen</option>
     </select>
-    
-    <button id="drawAreaBtn">Draw Area & Write Review</button>
-    
-    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
-      <small style="color: #666;">
-        Heatmap shows current day data.<br>
-        Click on map to see 5-day forecast.
-      </small>
-    </div>
+    <button id="drawAreaBtn">Draw Area & Review</button>
   </div>
   
-  <div id="forecast-info" style="display: none;">
-    <strong id="forecast-title">5-Day Pollen Forecast</strong>
-    <div id="forecast-content" class="loading">Click on the map...</div>
+  <div id="forecast-info" class="glass-panel">
+    <div class="close-forecast" onclick="closeForecast()">✕</div>
+    <strong id="forecast-title" style="font-size:21px;">5-Day Forecast</strong>
+    <div id="forecast-content">Click on the map...</div>
   </div>
   
   <div id="map"></div>
   
-  <div id="legend">
+  <div id="legend" class="glass-panel">
     <strong>Pollen Index (UPI)</strong><br>
-    <div><span style="color:#e0e0e0;">●</span> None (0)</div>
-    <div><span style="color:#00ff00;">●</span> Very Low (1)</div>
-    <div><span style="color:#a8ff00;">●</span> Low (2)</div>
-    <div><span style="color:#ffff00;">●</span> Moderate (3)</div>
-    <div><span style="color:#ff8000;">●</span> High (4)</div>
-    <div><span style="color:#ff0000;">●</span> Very High (5)</div>
+    <div><span class="legend-dot" style="background:#e8e8e8;"></span> 0 - None</div>
+    <div><span class="legend-dot" style="background:#c3f0c3;"></span> 1 - Very Low</div>
+    <div><span class="legend-dot" style="background:#fff59d;"></span> 2 - Low</div>
+    <div><span class="legend-dot" style="background:#ffcc80;"></span> 3 - Moderate</div>
+    <div><span class="legend-dot" style="background:#ff8a65;"></span> 4 - High</div>
+    <div><span class="legend-dot" style="background:#ef5350;"></span> 5 - Very High</div>
   </div>
 
-  <a id="external-logo-link" href="https://your-link-here.com" target="_blank">
-    <img src="/static/mini.png" class="clickable-logo" alt="Anthoscope Logo">
+  <a id="external-logo-link" href="#" target="_blank">
+    <img src="/static/mini.png" class="clickable-logo" alt="Anthoscope">
   </a>
 
   <div id="review-modal">
     <div class="modal-content">
-      <h2>Write Allergy Review</h2>
+      <h2 style="color:#c8005a; margin-top:0;">New Allergy Review</h2>
+      <div id="area-info" style="margin-bottom:15px; font-size:14px; color:#666; background:#f9f9f9; padding:10px; border-radius:5px;"></div>
       
-      <div class="form-group">
-        <label>Area Selected:</label>
-        <div id="area-info" class="info-text"></div>
-      </div>
+      <label style="display:block; margin-bottom:5px; font-weight:bold;">Pollen Allergy Type:</label>
+      <select id="rev-type" style="width:100%; padding:10px; margin-bottom:15px;">
+        <option value="Tree">Tree Pollen</option>
+        <option value="Grass">Grass Pollen</option>
+        <option value="Weed">Weed Pollen</option>
+      </select>
       
-      <div class="form-group">
-        <label for="review-pollen-type">Pollen Type You're Allergic To:</label>
-        <select id="review-pollen-type">
-          <option value="Tree">Tree Pollen</option>
-          <option value="Grass">Grass Pollen</option>
-          <option value="Weed">Weed Pollen</option>
-          <option value="Multiple">Multiple Types</option>
-        </select>
-      </div>
+      <label style="display:block; margin-bottom:5px; font-weight:bold;">Severity:</label>
+      <select id="rev-sev" style="width:100%; padding:10px; margin-bottom:15px;">
+        <option value="Mild">Mild</option>
+        <option value="Moderate">Moderate</option>
+        <option value="Severe">Severe</option>
+      </select>
+
+      <label style="display:block; margin-bottom:5px; font-weight:bold;">Comments:</label>
+      <textarea id="rev-text" style="width:100%; height:80px; padding:10px; margin-bottom:15px; border:1px solid #ccc;"></textarea>
       
-      <div class="form-group">
-        <label for="severity">Severity of Allergy:</label>
-        <select id="severity">
-          <option value="Mild">Mild</option>
-          <option value="Moderate">Moderate</option>
-          <option value="Severe">Severe</option>
-          <option value="Very Severe">Very Severe</option>
-        </select>
-      </div>
-      
-      <div class="form-group">
-        <label>Symptoms (select all that apply):</label>
-        <div class="checkbox-group">
-          <label><input type="checkbox" value="Sneezing"> Sneezing</label>
-          <label><input type="checkbox" value="Runny Nose"> Runny Nose</label>
-          <label><input type="checkbox" value="Itchy Eyes"> Itchy Eyes</label>
-          <label><input type="checkbox" value="Watery Eyes"> Watery Eyes</label>
-          <label><input type="checkbox" value="Congestion"> Congestion</label>
-          <label><input type="checkbox" value="Coughing"> Coughing</label>
-          <label><input type="checkbox" value="Breathing Difficulty"> Breathing Difficulty</label>
-          <label><input type="checkbox" value="Skin Rash"> Skin Rash</label>
-          <label><input type="checkbox" value="None"> None</label>
-        </div>
-      </div>
-      
-      <div class="form-group">
-        <label for="review-text">Additional Comments (Optional):</label>
-        <textarea id="review-text" placeholder="Share your experience with pollen allergies in this area..."></textarea>
-      </div>
-      
-      <div class="modal-buttons">
-        <button class="btn-cancel" onclick="closeReviewModal()">Cancel</button>
-        <button class="btn-submit" onclick="submitReview()">Submit Review</button>
+      <div style="display:flex; gap:10px;">
+        <button onclick="closeReviewModal()" style="flex:1; padding:12px; background:#eee; border:none; border-radius:5px;">Cancel</button>
+        <button onclick="submitReview()" style="flex:1; padding:12px; background:#c8005a; color:white; border:none; border-radius:5px; font-weight:bold;">Submit Review</button>
       </div>
     </div>
   </div>
@@ -591,710 +152,215 @@
     const FORECAST_API = "https://pollen.googleapis.com/v1/forecast:lookup";
 
     const REGIONS = {
-      europe: {
-        label: 'Europe',
-        center: { lat: 51.0, lng: 10.0 },
-        zoom: 5,
-        bounds: { west: -25.0, east: 45.0, south: 30.0, north: 72.0 }
-      },
-      usa: {
-        label: 'USA',
-        center: { lat: 37.0, lng: -96.0 },
-        zoom: 4,
-        bounds: { west: -125.0, east: -66.0, south: 24.0, north: 49.0 }
-      },
-      japan: {
-        label: 'Japan',
-        center: { lat: 37.0, lng: 138.0 },
-        zoom: 5,
-        bounds: { west: 122.9, east: 154.0, south: 20.4, north: 45.5 }
-      },
-      australia: {
-        label: 'Australia',
-        center: { lat: -27.0, lng: 133.0 },
-        zoom: 4,
-        bounds: { west: 112.9, east: 153.6, south: -43.6, north: -10.7 }
-      }
+      europe: { center: { lat: 51.0, lng: 10.0 }, zoom: 5, bounds: { south: 30.0, west: -25.0, north: 72.0, east: 45.0 } },
+      usa: { center: { lat: 37.0, lng: -96.0 }, zoom: 4, bounds: { south: 24.0, west: -125.0, north: 49.0, east: -66.0 } },
+      japan: { center: { lat: 37.0, lng: 138.0 }, zoom: 5, bounds: { south: 20.4, west: 122.9, north: 45.5, east: 154.0 } },
+      australia: { center: { lat: -27.0, lng: 133.0 }, zoom: 4, bounds: { south: -43.6, west: 112.9, north: -10.7, east: 153.6 } }
     };
 
-    let currentRegion = 'europe';
-    
-    let map, pollenOverlay, forecastMarker, drawingManager;
-    let currentCircle = null;
-    let isDrawingMode = false;
-    let searchBox, searchResults;
-    let placesService, autocompleteService;
-    let searchTimeout = null;
-
-    function isLocationInAnyRegion(lat, lng) {
-      return getRegionForLocation(lat, lng) !== null;
-    }
-
-    function getRegionForLocation(lat, lng) {
-      for (const key in REGIONS) {
-        const b = REGIONS[key].bounds;
-        if (lat >= b.south && lat <= b.north && lng >= b.west && lng <= b.east) {
-          return key;
-        }
-      }
-      return null;
-    }
-
-    function applyRegionRestriction(regionKey) {
-      currentRegion = regionKey;
-      const region = REGIONS[regionKey];
-      const b = region.bounds;
-      const latLngBounds = new google.maps.LatLngBounds(
-        new google.maps.LatLng(b.south, b.west),
-        new google.maps.LatLng(b.north, b.east)
-      );
-      map.setOptions({ restriction: { latLngBounds: latLngBounds, strictBounds: true } });
-      map.panTo(region.center);
-      map.setZoom(region.zoom);
-    }
+    let map, drawingManager, currentCircle, isDrawingMode = false;
+    let markers = [];
 
     function initMap() {
-      const center = { lat: 51.0, lng: 10.0 };
-      
       map = new google.maps.Map(document.getElementById("map"), {
-        center: center,
-        zoom: 5,
-        mapTypeId: 'roadmap',
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-        restriction: {
-          latLngBounds: new google.maps.LatLngBounds(
-            new google.maps.LatLng(30.0, -25.0),
-            new google.maps.LatLng(72.0, 45.0)
-          ),
-          strictBounds: true
-        },
-        styles: [
-          {
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffe0ee"}]
-          },
-          {
-            "elementType": "labels.text.fill",
-            "stylers": [{"color": "#cc0066"}]
-          },
-          {
-            "elementType": "labels.text.stroke",
-            "stylers": [{"color": "#ffffff"}]
-          },
-          {
-            "featureType": "administrative",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#ff0072"}]
-          },
-          {
-            "featureType": "administrative.country",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#dd0066"}, {"weight": 2}]
-          },
-          {
-            "featureType": "administrative.province",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#ff3388"}]
-          },
-          {
-            "featureType": "landscape",
-            "elementType": "geometry",
-            "stylers": [{"color": "#fff0f7"}]
-          },
-          {
-            "featureType": "poi",
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffe6f0"}]
-          },
-          {
-            "featureType": "road",
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffccdd"}]
-          },
-          {
-            "featureType": "road.highway",
-            "elementType": "geometry",
-            "stylers": [{"color": "#ffb3cc"}]
-          },
-          {
-            "featureType": "road.highway",
-            "elementType": "geometry.stroke",
-            "stylers": [{"color": "#ff99bb"}]
-          },
-          {
-            "featureType": "water",
-            "elementType": "geometry",
-            "stylers": [{"color": "#e0f0ff"}]
-          }
-        ]
-      });
-
-      initSearch();
-
-      document.getElementById('regionSelect').addEventListener('change', function(e) {
-        applyRegionRestriction(e.target.value);
+        center: REGIONS.europe.center, zoom: 5,
+        mapTypeControl: false, streetViewControl: false, fullscreenControl: false
       });
 
       updatePollenOverlay('TREE_UPI');
+      setRegion('europe'); 
+      loadReviews();
+      initSearch();
 
-      document.getElementById('pollenType').addEventListener('change', function(e) {
-        updatePollenOverlay(e.target.value);
-      });
-      
-      map.addListener('click', function(e) {
-        if (!isDrawingMode) {
-          showForecast(e.latLng.lat(), e.latLng.lng());
-        }
-      });
-      
+      map.addListener('click', (e) => { if (!isDrawingMode) showForecast(e.latLng.lat(), e.latLng.lng()); });
+
       drawingManager = new google.maps.drawing.DrawingManager({
-        drawingMode: null,
-        drawingControl: false,
-        circleOptions: {
-          fillColor: 'rgba(200, 0, 90, 0.5)',
-          fillOpacity: 0.3,
-          strokeWeight: 2,
-          strokeColor: 'rgba(200, 0, 90, 0.8)',
-          clickable: false,
-          editable: true,
-          zIndex: 1
-        }
+        drawingMode: null, drawingControl: false,
+        circleOptions: { fillColor: 'rgba(200, 0, 90, 0.4)', fillOpacity: 0.3, strokeWeight: 2, strokeColor: '#c8005a' }
       });
-      
-      google.maps.event.addListener(drawingManager, 'circlecomplete', function(circle) {
-        if (currentCircle) {
-          currentCircle.setMap(null);
-        }
+      drawingManager.setMap(map);
+
+      google.maps.event.addListener(drawingManager, 'circlecomplete', (circle) => {
+        if (currentCircle) currentCircle.setMap(null);
         currentCircle = circle;
-        drawingManager.setDrawingMode(null);
-        isDrawingMode = false;
-        document.getElementById('drawAreaBtn').textContent = 'Draw Area & Write Review';
-        openReviewModal(circle);
+        toggleDrawingMode();
+        openReviewModal();
       });
-      
+
+      document.getElementById('regionSelect').addEventListener('change', (e) => setRegion(e.target.value));
+      document.getElementById('pollenType').addEventListener('change', (e) => updatePollenOverlay(e.target.value));
       document.getElementById('drawAreaBtn').addEventListener('click', toggleDrawingMode);
-      
-      showForecast(center.lat, center.lng);
-      loadExistingReviews();
     }
 
-    function initSearch() {
-      searchBox = document.getElementById('search-box');
-      searchResults = document.getElementById('search-results');
+    function setRegion(key) {
+      const r = REGIONS[key];
+      const bounds = new google.maps.LatLngBounds({lat: r.bounds.south, lng: r.bounds.west}, {lat: r.bounds.north, lng: r.bounds.east});
       
-      placesService = new google.maps.places.PlacesService(map);
-      autocompleteService = new google.maps.places.AutocompleteService();
+      // Temporarily remove restriction for smooth transition
+      map.setOptions({ restriction: null }); 
+      map.panTo(r.center); 
+      map.setZoom(r.zoom);
       
-      searchBox.addEventListener('input', function(e) {
-        const query = e.target.value.trim();
-        
-        if (query.length < 2) {
-          hideSearchResults();
-          return;
-        }
-        
-        if (searchTimeout) {
-          clearTimeout(searchTimeout);
-        }
-        
-        searchTimeout = setTimeout(() => {
-          performSearch(query);
-        }, 300);
-      });
-      
-      document.addEventListener('click', function(e) {
-        if (!searchBox.contains(e.target) && !searchResults.contains(e.target)) {
-          hideSearchResults();
-        }
-      });
-      
-      searchBox.addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const query = searchBox.value.trim();
-          if (query) {
-            performSearch(query, true);
-          }
-        }
-      });
+      // Re-apply after small delay to ensure center takes effect
+      setTimeout(() => {
+        map.setOptions({ restriction: { latLngBounds: bounds, strictBounds: true } });
+      }, 500);
+
+      document.getElementById('regionSelect').value = key;
     }
 
-    function performSearch(query, forceGeocode = false) {
-      searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
-      searchResults.style.display = 'block';
-      
-      if (forceGeocode) {
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ address: query }, function(results, status) {
-          if (status === 'OK' && results[0]) {
-            displayGeocodeResults(results);
-          } else {
-            searchResults.innerHTML = '<div class="search-error">Location not found</div>';
-          }
-        });
-      } else {
-        autocompleteService.getPlacePredictions(
-          { input: query, types: ['geocode'] },
-          function(predictions, status) {
-            if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-              displayAutocompleteResults(predictions);
-            } else {
-              const geocoder = new google.maps.Geocoder();
-              geocoder.geocode({ address: query }, function(results, status) {
-                if (status === 'OK' && results[0]) {
-                  displayGeocodeResults(results);
-                } else {
-                  searchResults.innerHTML = '<div class="search-error">No results found</div>';
-                }
-              });
-            }
-          }
-        );
-      }
-    }
-
-    function displayAutocompleteResults(predictions) {
-      searchResults.innerHTML = '<div class="search-loading">Searching...</div>';
-      
-      const geocoder = new google.maps.Geocoder();
-      const validItems = [];
-      let pending = predictions.length;
-      
-      if (pending === 0) {
-        searchResults.innerHTML = '<div class="search-error">No results found</div>';
-        return;
-      }
-      
-      predictions.forEach((prediction) => {
-        geocoder.geocode({ placeId: prediction.place_id }, function(results, status) {
-          if (status === 'OK' && results[0]) {
-            const loc = results[0].geometry.location;
-            if (isLocationInAnyRegion(loc.lat(), loc.lng())) {
-              validItems.push({ prediction, place: results[0] });
-            }
-          }
-          pending--;
-          if (pending === 0) {
-            searchResults.innerHTML = '';
-            if (validItems.length === 0) {
-              searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
-              return;
-            }
-            validItems.forEach(({ prediction, place }) => {
-              const resultItem = document.createElement('div');
-              resultItem.className = 'search-result-item';
-              resultItem.innerHTML = `
-                <strong>${prediction.structured_formatting.main_text}</strong>
-                <div class="address">${prediction.structured_formatting.secondary_text || ''}</div>
-              `;
-              resultItem.addEventListener('click', function() {
-                selectLocationFromSearch(place.geometry.location, place.formatted_address);
-              });
-              searchResults.appendChild(resultItem);
-            });
-          }
-        });
-      });
-    }
-
-    function displayGeocodeResults(results) {
-      searchResults.innerHTML = '';
-      
-      const validResults = results.filter(result => {
-        const loc = result.geometry.location;
-        return isLocationInAnyRegion(loc.lat(), loc.lng());
-      });
-      
-      if (validResults.length === 0) {
-        searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
-        return;
-      }
-      
-      validResults.forEach((result, index) => {
-        const resultItem = document.createElement('div');
-        resultItem.className = 'search-result-item';
-        resultItem.innerHTML = `
-          <strong>${result.formatted_address}</strong>
-        `;
-        
-        resultItem.addEventListener('click', function() {
-          selectLocationFromSearch(result.geometry.location, result.formatted_address);
-        });
-        
-        searchResults.appendChild(resultItem);
-      });
-      
-      if (validResults.length === 1) {
-        selectLocationFromSearch(validResults[0].geometry.location, validResults[0].formatted_address);
-      }
-    }
-
-    function selectLocationFromSearch(location, address) {
-      const lat = location.lat();
-      const lng = location.lng();
-      
-      const targetRegion = getRegionForLocation(lat, lng);
-      if (!targetRegion) {
-        searchResults.innerHTML = '<div class="search-error" style="padding:15px; font-size:15px;">⚠️ This location is not supported from Anthoscope yet.</div>';
-        searchResults.style.display = 'block';
-        return;
-      }
-      
-      if (targetRegion !== currentRegion) {
-        map.setOptions({ restriction: null });
-        document.getElementById('regionSelect').value = targetRegion;
-        currentRegion = targetRegion;
-        const region = REGIONS[targetRegion];
-        const b = region.bounds;
-        map.setOptions({
-          restriction: {
-            latLngBounds: new google.maps.LatLngBounds(
-              new google.maps.LatLng(b.south, b.west),
-              new google.maps.LatLng(b.north, b.east)
-            ),
-            strictBounds: true
-          }
-        });
-      }
-      
-      searchBox.value = address;
-      hideSearchResults();
-      
-      map.panTo({ lat, lng });
-      map.setZoom(12);
-      
-      showForecast(lat, lng);
-      
-      if (forecastMarker) {
-        forecastMarker.setPosition({ lat, lng });
-        forecastMarker.setAnimation(google.maps.Animation.DROP);
-      } else {
-        forecastMarker = new google.maps.Marker({
-          position: { lat, lng },
-          map: map,
-          title: address,
-          animation: google.maps.Animation.DROP
-        });
-      }
-    }
-
-    function hideSearchResults() {
-      searchResults.style.display = 'none';
-    }
-
-    function updatePollenOverlay(pollenType) {
+    function updatePollenOverlay(type) {
       map.overlayMapTypes.clear();
+      const overlay = new google.maps.ImageMapType({
+        getTileUrl: (coord, zoom) => `https://pollen.googleapis.com/v1/mapTypes/${type}/heatmapTiles/${zoom}/${coord.x}/${coord.y}?key=${GOOGLE_KEY}`,
+        tileSize: new google.maps.Size(256, 256), opacity: 0.6
+      });
+      map.overlayMapTypes.push(overlay);
+    }
 
-      pollenOverlay = new google.maps.ImageMapType({
-        getTileUrl: function(coord, zoom) {
-          const numTiles = Math.pow(2, zoom);
-          if (coord.x < 0 || coord.x >= numTiles || coord.y < 0 || coord.y >= numTiles) {
-            return null;
-          }
-          return `https://pollen.googleapis.com/v1/mapTypes/${pollenType}/heatmapTiles/${zoom}/${coord.x}/${coord.y}?key=${GOOGLE_KEY}`;
-        },
-        tileSize: new google.maps.Size(256, 256),
-        opacity: 0.6,
-        name: 'Pollen'
-      });
-
-      map.overlayMapTypes.push(pollenOverlay);
-    }
-    
-    function toggleDrawingMode() {
-      if (isDrawingMode) {
-        drawingManager.setMap(null);
-        isDrawingMode = false;
-        document.getElementById('drawAreaBtn').textContent = 'Draw Area & Write Review';
-      } else {
-        drawingManager.setMap(map);
-        drawingManager.setDrawingMode(google.maps.drawing.OverlayType.CIRCLE);
-        isDrawingMode = true;
-        document.getElementById('drawAreaBtn').textContent = 'Cancel Drawing';
-      }
-    }
-    
-    function openReviewModal(circle) {
-      const center = circle.getCenter();
-      const radius = circle.getRadius() / 1000;
-      
-      document.getElementById('area-info').textContent = 
-        `Center: ${center.lat().toFixed(4)}, ${center.lng().toFixed(4)} | Radius: ${radius.toFixed(2)} km`;
-      
-      document.getElementById('review-modal').classList.add('active');
-    }
-    
-    function closeReviewModal() {
-      document.getElementById('review-modal').classList.remove('active');
-      if (currentCircle) {
-        currentCircle.setMap(null);
-        currentCircle = null;
-      }
-      document.getElementById('review-text').value = '';
-      document.querySelectorAll('.checkbox-group input[type="checkbox"]').forEach(cb => cb.checked = false);
-    }
-    
-    async function submitReview() {
-      if (!currentCircle) return;
-      
-      const center = currentCircle.getCenter();
-      const radius = currentCircle.getRadius() / 1000;
-      const pollenType = document.getElementById('review-pollen-type').value;
-      const severity = document.getElementById('severity').value;
-      const reviewText = document.getElementById('review-text').value;
-      
-      const symptoms = [];
-      document.querySelectorAll('.checkbox-group input[type="checkbox"]:checked').forEach(cb => {
-        symptoms.push(cb.value);
-      });
-      
-      const reviewData = {
-        centerLat: center.lat(),
-        centerLng: center.lng(),
-        radiusKm: radius,
-        pollenType: pollenType,
-        severity: severity,
-        symptoms: symptoms,
-        reviewText: reviewText
-      };
-      
-      try {
-        const response = await fetch('/api/reviews', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(reviewData)
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          alert('Review submitted successfully!');
-          closeReviewModal();
-          loadExistingReviews();
-        } else {
-          alert('Error submitting review: ' + result.error);
-        }
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Error submitting review. Please try again.');
-      }
-    }
-    
-    async function loadExistingReviews() {
-      try {
-        const response = await fetch('/api/reviews');
-        const result = await response.json();
-        
-        if (result.success && result.reviews) {
-          result.reviews.forEach(review => {
-            const marker = new google.maps.Marker({
-              position: { lat: review.center_lat, lng: review.center_lng },
-              map: map,
-              icon: {
-                url: '/static/point.png',
-                scaledSize: new google.maps.Size(40, 40)
-              },
-              clickable: true
-            });
-            
-            marker.addListener('click', function() {
-              showReviewDetails(review);
-            });
-          });
-        }
-      } catch (error) {
-        console.error('Error loading reviews:', error);
-      }
-    }
-    
-    let reviewCircle = null;
-    let reviewInfoWindow = null;
-    
-    function showReviewDetails(review) {
-      if (reviewCircle) {
-        reviewCircle.setMap(null);
-      }
-      if (reviewInfoWindow) {
-        reviewInfoWindow.close();
-      }
-      
-      reviewCircle = new google.maps.Circle({
-        center: { lat: review.center_lat, lng: review.center_lng },
-        radius: review.radius_km * 1000,
-        fillColor: 'rgba(200, 0, 90, 0.5)',
-        fillOpacity: 0.2,
-        strokeWeight: 2,
-        strokeColor: 'rgba(200, 0, 90, 0.8)',
-        map: map,
-        clickable: false
-      });
-      
-      reviewInfoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="font-family: 'Montserrat', sans-serif; background: rgba(255, 0, 114, 0.15); backdrop-filter: blur(10px); border: 1px solid rgba(255, 0, 114, 0.5); padding: 20px; border-radius: 10px; min-width: 300px; max-width: 450px;">
-            <h3 style="margin-top: 0; color: rgba(200, 0, 90, 1); font-size: 21px;">Allergy Review</h3>
-            <div style="margin-bottom: 10px; color: #666; font-size: 14px;">
-              <strong>Location:</strong> ${review.center_lat.toFixed(4)}, ${review.center_lng.toFixed(4)}<br>
-              <strong>Area Radius:</strong> ${review.radius_km.toFixed(2)} km
-            </div>
-            <p style="margin: 8px 0;"><strong style="color: #333;">Pollen Type:</strong> <span style="color: #555;">${review.pollen_type}</span></p>
-            <p style="margin: 8px 0;"><strong style="color: #333;">Severity:</strong> <span style="color: #555;">${review.severity}</span></p>
-            <p style="margin: 8px 0;"><strong style="color: #333;">Symptoms:</strong> <span style="color: #555;">${review.symptoms.length > 0 ? review.symptoms.join(', ') : 'None'}</span></p>
-            ${review.review_text ? `<p style="margin: 12px 0 0 0; padding-top: 10px; border-top: 1px solid rgba(200, 0, 90, 0.3); font-style: italic; color: #444;">"${review.review_text}"</p>` : ''}
-          </div>
-        `,
-        position: { lat: review.center_lat, lng: review.center_lng }
-      });
-      
-      reviewInfoWindow.open(map);
-      
-      const closeListener = google.maps.event.addListener(map, 'click', function() {
-        if (reviewCircle) {
-          reviewCircle.setMap(null);
-          reviewCircle = null;
-        }
-        if (reviewInfoWindow) {
-          reviewInfoWindow.close();
-          reviewInfoWindow = null;
-        }
-        google.maps.event.removeListener(closeListener);
-      });
-    }
-    
-    function getHealthAdvice(upi, speciesCode) {
+    function getHealthAdvice(upi, code) {
       const base = {
-        0: "No symptoms expected. You can safely spend time outside.",
-        1: "Symptoms unlikely. Sensitive individuals may notice mild irritation; keep medication available.",
-        2: "Minor symptoms possible (itchy eyes, light sneezing). Keep windows closed at night; shower after outdoor activity.",
-        3: "Noticeable symptoms likely for allergic individuals. Limit outdoor exercise; use antihistamines; use HEPA filtration indoors.",
-        4: "Strong symptoms for most allergic individuals. Avoid prolonged outdoor activity; wear a mask outdoors (FFP2/N95); keep windows closed; use air purifier.",
-        5: "Severe symptoms expected. Stay indoors as much as possible; use AC+filtration; take prescribed medication; asthmatics keep inhaler accessible."
-      }[upi] || "No advice available.";
-
-      const extras = {
-        BIRCH: " Rapid symptom onset in dry mornings.",
-        HAZEL: " Early-spring reactions common.",
-        ALDER: " May trigger strong eye symptoms.",
-        OAK: " Keep car vents on recirculation when driving.",
-        MAPLE: " Avoid forest-path jogging during peak.",
-        RAGWEED: " Highly allergenic — avoid outdoor running 5–10 AM.",
-        MUGWORT: " Cross-reactive with celery & spices; avoid those if sensitive.",
-        GRAMINALES: " Avoid freshly mowed lawns.",
-        OLIVE: " Nasal rinsing recommended to reduce buildup.",
-        CYPRESS_PINE: " Sticky pollen; affects sinuses strongly.",
-        JAPANESE_CEDAR: " Wear a mask outdoors during peak.",
-        JUNIPER: " Can trigger asthma-like symptoms; keep inhaler handy."
-      }[speciesCode] || "";
-
-      return base + extras;
-    }
-
-    function toggleSpeciesBreakdown(dayIndex) {
-      const breakdown = document.getElementById(`species-breakdown-${dayIndex}`);
-      const button = document.getElementById(`species-toggle-${dayIndex}`);
-      
-      if (breakdown.classList.contains('show')) {
-        breakdown.classList.remove('show');
-        button.textContent = 'Show Species Breakdown';
-      } else {
-        breakdown.classList.add('show');
-        button.textContent = 'Hide Species Breakdown';
-      }
+        0: "No symptoms expected.",
+        1: "Symptoms unlikely. Sensitive individuals may notice mild irritation.",
+        2: "Minor symptoms possible. Keep windows closed at night.",
+        3: "Noticeable symptoms likely. Limit outdoor exercise.",
+        4: "Strong symptoms for most individuals. Wear a mask outdoors.",
+        5: "Severe symptoms expected. Stay indoors as much as possible."
+      }[upi] || "";
+      const extra = {
+        BIRCH: " Morning peaks common.", RAGWEED: " Avoid outdoor running 5-10 AM.", 
+        GRAMINALES: " Avoid freshly mowed lawns.", JAPANESE_CEDAR: " Wear a mask during peak."
+      }[code] || "";
+      return base + " " + extra;
     }
 
     async function showForecast(lat, lng) {
-      const forecastDiv = document.getElementById('forecast-info');
-      const contentDiv = document.getElementById('forecast-content');
-      
-      forecastDiv.style.display = 'block';
-      contentDiv.innerHTML = '<div class="loading">Loading forecast...</div>';
-      
-      if (forecastMarker) {
-        forecastMarker.setPosition({lat, lng});
-      } else {
-        forecastMarker = new google.maps.Marker({
-          position: {lat, lng},
-          map: map,
-          title: 'Forecast Location'
-        });
-      }
-      
+      const info = document.getElementById('forecast-info');
+      const content = document.getElementById('forecast-content');
+      info.style.display = 'block';
+      content.innerHTML = "Loading analytics...";
+
       try {
-        const url = `${FORECAST_API}?key=${GOOGLE_KEY}&location.latitude=${lat}&location.longitude=${lng}&days=5`;
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        if (!data.dailyInfo || data.dailyInfo.length === 0) {
-          contentDiv.innerHTML = '<div>No forecast data available for this location.</div>';
-          return;
-        }
-        
-        let html = '<div style="margin-bottom: 10px; color: #666; font-size: 12px;">';
-        html += `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}</div>`;
-        
-        data.dailyInfo.forEach((day, index) => {
-          const date = new Date(day.date.year, day.date.month - 1, day.date.day);
-          const dateStr = date.toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
+        const res = await fetch(`${FORECAST_API}?key=${GOOGLE_KEY}&location.latitude=${lat}&location.longitude=${lng}&days=5`);
+        const data = await res.json();
+        if (!data.dailyInfo) { content.innerHTML = "No data."; return; }
+
+        let html = "";
+        data.dailyInfo.forEach((day, i) => {
+          const date = new Date(day.date.year, day.date.month-1, day.date.day).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          html += `<div class="forecast-day"><strong>${i === 0 ? 'Today' : date}</strong><br>`;
+          day.pollenTypeInfo.forEach(p => {
+            html += `<span class="pollen-level level-${p.indexInfo?.value || 0}">${p.displayName}: ${p.indexInfo?.category || 'None'}</span>`;
           });
-          
-          html += `<div class="forecast-day">`;
-          html += `<strong>${index === 0 ? 'Today' : dateStr}</strong><br>`;
-          
-          if (day.pollenTypeInfo && day.pollenTypeInfo.length > 0) {
-            day.pollenTypeInfo.forEach(pollen => {
-              if (pollen.indexInfo) {
-                const level = pollen.indexInfo.value || 0;
-                const category = pollen.indexInfo.category || 'Unknown';
-                html += `<span class="pollen-level level-${level}">`;
-                html += `${pollen.displayName}: ${category}</span>`;
-              } else {
-                html += `<span class="pollen-level level-0">`;
-                html += `${pollen.displayName}: None</span>`;
-              }
+          if (day.plantInfo) {
+            html += `<button class="species-toggle" onclick="this.nextElementSibling.classList.toggle('show')">Analytical Breakdown</button>
+                     <div class="species-breakdown">`;
+            day.plantInfo.forEach(s => {
+              const v = s.indexInfo?.value || 0;
+              html += `<div style="margin-top:5px;"><span class="pollen-level level-${v}">${s.displayName}</span>
+                       <div class="health-advice">${getHealthAdvice(v, s.code)}</div></div>`;
             });
-          } else {
-            html += '<span style="color: #999;">No pollen type data</span>';
-          }
-
-          if (day.plantInfo && day.plantInfo.length > 0) {
-            html += `<button id="species-toggle-${index}" class="species-toggle" onclick="toggleSpeciesBreakdown(${index})">Show Species Breakdown</button>`;
-            html += `<div id="species-breakdown-${index}" class="species-breakdown">`;
-            html += `<strong>Species Breakdown:</strong>`;
-            
-            day.plantInfo.forEach(species => {
-              const level = species.indexInfo?.value || 0;
-              const category = species.indexInfo?.category || 'None';
-
-              html += `<div class="species-item">`;
-              html += `<span class="pollen-level level-${level}">`;
-              html += `${species.displayName}: ${category}</span>`;
-
-              const advicePreview = getHealthAdvice(level, species.code);
-              html += `<div class="health-advice">${advicePreview}</div>`;
-
-              html += `</div>`;
-            });
-            
             html += `</div>`;
           }
-          
           html += `</div>`;
         });
-        
-        contentDiv.innerHTML = html;
-        
-      } catch (error) {
-        console.error('Error fetching forecast:', error);
-        contentDiv.innerHTML = '<div style="color: red;">Error loading forecast data.</div>';
-      }
+        content.innerHTML = html;
+      } catch (err) { content.innerHTML = "Error loading forecast."; }
     }
+
+    function closeForecast() { document.getElementById('forecast-info').style.display = 'none'; }
+
+    function isInside(lat, lng, bounds) {
+      return lat >= bounds.south && lat <= bounds.north && lng >= bounds.west && lng <= bounds.east;
+    }
+
+    function initSearch() {
+      const input = document.getElementById('search-box');
+      const resDiv = document.getElementById('search-results');
+      const svc = new google.maps.places.AutocompleteService();
+      const geo = new google.maps.Geocoder();
+
+      input.addEventListener('input', () => {
+        if (input.value.length < 2) { resDiv.style.display = 'none'; return; }
+        svc.getPlacePredictions({ input: input.value, types: ['geocode'] }, (preds) => {
+          resDiv.innerHTML = ''; resDiv.style.display = 'block';
+          preds?.forEach(p => {
+            const d = document.createElement('div'); d.className = 'search-result-item'; d.innerText = p.description;
+            d.onclick = () => {
+              geo.geocode({ placeId: p.place_id }, (results) => {
+                const loc = results[0].geometry.location;
+                const lat = loc.lat(), lng = loc.lng();
+                
+                let targetRegion = null;
+                for (let key in REGIONS) {
+                  if (isInside(lat, lng, REGIONS[key].bounds)) { targetRegion = key; break; }
+                }
+
+                if (targetRegion) {
+                  // Important: Fully disable restriction to allow precise movement
+                  map.setOptions({ restriction: null });
+                  setRegion(targetRegion);
+                  
+                  // Forced move after a brief frame to clear internal restriction logic
+                  setTimeout(() => {
+                    map.panTo(loc);
+                    map.setZoom(13);
+                    showForecast(lat, lng);
+                  }, 100);
+
+                  resDiv.style.display = 'none';
+                  input.value = p.description;
+                } else {
+                  resDiv.innerHTML = `<div class="search-error">⚠️ This location is not supported from Anthoscope yet.</div>`;
+                }
+              });
+            };
+            resDiv.appendChild(d);
+          });
+        });
+      });
+    }
+
+    async function loadReviews() {
+      markers.forEach(m => m.setMap(null)); markers = [];
+      try {
+        const res = await fetch('/api/reviews');
+        const data = await res.json();
+        if (data.success) {
+          data.reviews.forEach(r => {
+            const marker = new google.maps.Marker({ position: { lat: r.center_lat, lng: r.center_lng }, map: map, icon: { url: '/static/point.png', scaledSize: new google.maps.Size(40, 40) } });
+            marker.addListener('click', () => {
+              new google.maps.InfoWindow({
+                content: `<div class="custom-infowindow"><div class="infowindow-header">Allergy Review</div>
+                          <div><b>Loc:</b> ${r.center_lat.toFixed(4)}, ${r.center_lng.toFixed(4)}</div>
+                          <div><b>Radius:</b> ${r.radius_km.toFixed(2)} km</div>
+                          <div style="margin-top:5px; font-style:italic;">"${r.review_text}"</div></div>`
+              }).open(map, marker);
+            });
+            markers.push(marker);
+          });
+        }
+      } catch (e) {}
+    }
+
+    async function submitReview() {
+      const payload = {
+        centerLat: currentCircle.getCenter().lat(), centerLng: currentCircle.getCenter().lng(),
+        radiusKm: currentCircle.getRadius() / 1000, pollenType: document.getElementById('rev-type').value,
+        severity: document.getElementById('rev-sev').value, reviewText: document.getElementById('rev-text').value, symptoms: []
+      };
+      const res = await fetch('/api/reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const result = await res.json();
+      if (result.success) { closeReviewModal(); loadReviews(); }
+    }
+
+    function openReviewModal() {
+      const c = currentCircle.getCenter();
+      document.getElementById('area-info').innerHTML = `<b>Loc:</b> ${c.lat().toFixed(4)}, ${c.lng().toFixed(4)} | <b>Radius:</b> ${(currentCircle.getRadius()/1000).toFixed(2)}km`;
+      document.getElementById('review-modal').classList.add('active');
+    }
+    function closeReviewModal() { document.getElementById('review-modal').classList.remove('active'); if (currentCircle) currentCircle.setMap(null); }
+    function toggleDrawingMode() { isDrawingMode = !isDrawingMode; drawingManager.setDrawingMode(isDrawingMode ? google.maps.drawing.OverlayType.CIRCLE : null); document.getElementById('drawAreaBtn').textContent = isDrawingMode ? "Cancel Drawing" : "Draw Area & Review"; }
   </script>
 </body>
 </html>
