@@ -6,7 +6,7 @@ from datetime import datetime
 
 app = Flask(__name__)
 
-# Load Google API key from environment variable (recommended)
+
 
 # Database configuration
 DB_CONFIG = {
@@ -23,7 +23,7 @@ def get_db_connection():
 
 @app.route("/")
 def index():
-    return render_template("index.html", google_api_key=GOOGLE_API_KEY)
+    return render_template("index.html")
 
 @app.route("/api/reviews", methods=['POST'])
 def create_review():
