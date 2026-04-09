@@ -5,233 +5,211 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Anthoscope • Pollen Inspector</title>
   
-  <link rel="shortcut icon" href="{{ url_for('static', filename='anthologo-neg.ico') }}">
-  <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='anthologo-neg.ico') }}">
-
+  <link rel="icon" type="image/x-icon" href="static/anthologo-neg.ico">
+  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
   
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; cursor: url("{{ url_for('static', filename='cursor.png') }}"), auto !important; }
-    body { font-family: 'Inter', sans-serif; height: 100vh; background: #0a1a1f; color: white; overflow: hidden; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      height: 100vh; 
+      background: #0a1a1f; 
+      color: white; 
+      overflow: hidden; 
+    }
 
-    /* Pinkish Dark Map Design */
+    /* Pinkish Map Design */
     #map { 
-      height: 100%; width: 100%; z-index: 1; background: #0a1a1f;
-      filter: hue-rotate(300deg) brightness(1.1) saturate(1.5);
+      height: 100%; 
+      width: 100%; 
+      z-index: 1; 
+      background: #1a0a14;
+      filter: hue-rotate(300deg) brightness(1.2) saturate(1.8) contrast(1.1);
     }
     
-    /* Logo Container - Top Left */
+    /* Logo: Large, No Tile Background, Top Left */
     #logo-container {
-      position: absolute; top: 25px; left: 20px; width: 300px; z-index: 1000; pointer-events: none;
-    }
-    #logo-container img { width: 100%; height: auto; display: block; }
-
-    /* Glass Panels */
-    .glass-card {
-      background: rgba(15, 25, 35, 0.9); backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px); border-radius: 20px; 
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); z-index: 1000; position: absolute;
+      position: absolute;
+      top: 25px;
+      left: 20px;
+      width: 300px;
+      z-index: 1000;
+      pointer-events: none;
     }
     
-    /* Data Report - Positioned with space below the logo */
-    #pollen-report {
-      top: 145px; /* Added space from the logo (Logo top 25px + approx logo height) */
-      left: 20px; width: 300px; padding: 20px; display: none; 
+    #logo-container img {
+      width: 100%;
+      height: auto;
+      display: block;
     }
 
-    /* Bottom Left Button - Independent (No Legend) */
-    #drawAreaBtn {
-      position: absolute; bottom: 30px; left: 20px; z-index: 1000;
-      width: 260px; padding: 15px;
-      background: #ff4d7a; color: white; border: none; border-radius: 12px;
-      font-weight: bold; font-size: 0.95rem; cursor: pointer;
-      box-shadow: 0 4px 15px rgba(255, 77, 122, 0.4);
-      transition: transform 0.2s ease;
+    /* Glass-card design */
+    .glass-card {
+      background: rgba(15, 25, 35, 0.9); 
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 20px; 
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); 
+      z-index: 1000; 
+      position: absolute;
     }
-    #drawAreaBtn:active { transform: scale(0.98); }
+    
+    /* Spacing between Logo and Data Tile */
+    #pollen-report {
+      top: 150px; /* Space added between logo and tile */
+      left: 20px; 
+      width: 300px; 
+      padding: 20px;
+      display: none; 
+      transition: all 0.3s ease;
+    }
 
     .pollen-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.1);
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      padding: 10px 0; 
+      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .pollen-label { font-weight: 600; font-size: 0.85rem; }
-    .pollen-val { font-family: monospace; color: #ffb7cc; }
+    .pollen-item:last-child { border: none; }
     
-    .tag { padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; text-transform: uppercase; margin-left: 8px; }
+    .pollen-label { font-weight: 600; font-size: 0.9rem; }
+    .pollen-val { font-family: monospace; font-size: 1rem; color: #ffb7cc; }
+    
+    /* Category Tags */
+    .tag {
+      padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+      text-transform: uppercase; margin-left: 10px;
+    }
     .tag-low { background: #c8e6c9; color: #1b5e20; }
     .tag-mod { background: #fff9c4; color: #f57f17; }
     .tag-high { background: #ef5350; color: #fff; }
 
-    /* Modal Styling */
-    #review-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; justify-content: center; align-items: center; }
-    .modal-content { background: #1a2a2f; padding: 25px; border-radius: 20px; width: 90%; max-width: 400px; border: 1px solid #ff4d7a; }
-    .modal-content textarea { width: 100%; height: 100px; padding: 10px; margin-top: 10px; background: #0a1a1f; border: 1px solid #333; color: white; border-radius: 8px; font-family: inherit; resize: none; }
+    .hint { 
+      position: absolute; 
+      bottom: 30px; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      background: rgba(0,0,0,0.6); 
+      padding: 10px 25px; 
+      border-radius: 30px; 
+      font-size: 0.85rem; 
+      z-index: 1000; 
+      pointer-events: none;
+      color: #ffb7cc;
+      border: 1px solid rgba(255, 77, 122, 0.2);
+    }
   </style>
 </head>
 <body>
 
   <div id="logo-container">
-    <img src="{{ url_for('static', filename='anthologo_neg.png') }}" alt="Anthoscope">
+    <img src="static/anthologo_neg.png" alt="Anthoscope">
   </div>
 
   <div id="pollen-report" class="glass-card">
-    <h2 id="report-loc" style="font-size: 0.7rem; color: #ff4d7a; margin-bottom: 10px; letter-spacing: 1px;">LOCAL POLLEN DATA</h2>
+    <h2 id="report-loc" style="font-size: 0.8rem; color: #ff4d7a; margin-bottom: 15px; font-weight: 700;">LOCATION DETAILS</h2>
     <div id="pollen-list"></div>
+    <p style="font-size: 0.6rem; color: #888; margin-top: 15px;">Source: Open-Meteo Air Quality (CAMS)</p>
   </div>
 
-  <button id="drawAreaBtn">Draw Area & Review</button>
+  <div class="hint">📍 Tap anywhere on the map to inspect pollen levels</div>
 
   <div id="map"></div>
 
-  <div id="review-modal">
-    <div class="modal-content">
-      <h2 style="color:#ff4d7a; margin-bottom: 10px;">Submit Allergy Review</h2>
-      <p id="area-summary" style="font-size: 0.8rem; opacity: 0.7;"></p>
-      <textarea id="rev-text" placeholder="Describe the pollen impact in this area..."></textarea>
-      <div style="display:flex; gap:10px; margin-top:15px;">
-        <button onclick="closeReviewModal()" style="flex:1; padding:12px; background:#333; color:white; border:none; border-radius:8px;">Cancel</button>
-        <button onclick="submitReview()" style="flex:1; padding:12px; background:#ff4d7a; color:white; border:none; border-radius:8px; font-weight:bold;">Submit</button>
-      </div>
-    </div>
-  </div>
-
   <script>
-    let map, activeMarker, drawingCircle, isDrawingMode = false;
-    let reviewMarkers = [];
+    let map, marker;
+
+    // Custom Pink Marker Icon
+    const pinkIcon = L.divIcon({
+      className: 'custom-pink-pin',
+      html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0ZM15 20.25C12.1005 20.25 9.75 17.8995 9.75 15C9.75 12.1005 12.1005 9.75 15 9.75C17.8995 9.75 20.25 12.1005 20.25 15C20.25 17.8995 17.8995 20.25 15 20.25Z" fill="#ff4d7a"/>
+             </svg>`,
+      iconSize: [30, 42],
+      iconAnchor: [15, 42]
+    });
 
     function initMap() {
-      // Initialize map with Dark theme
-      map = L.map('map', { zoomControl: false }).setView([48.85, 2.35], 5);
+      map = L.map('map', { 
+        zoomControl: false,
+        attributionControl: false 
+      }).setView([48.85, 2.35], 5);
       
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; Open-Meteo'
+        maxZoom: 19
       }).addTo(map);
 
       map.on('click', onMapClick);
-      document.getElementById('drawAreaBtn').addEventListener('click', toggleDrawingMode);
-      
-      // Load past reviews on startup
-      loadReviews();
     }
 
     async function onMapClick(e) {
-      if (isDrawingMode) return;
-
       const { lat, lng } = e.latlng;
       const reportDiv = document.getElementById('pollen-report');
       const listDiv = document.getElementById('pollen-list');
       
       reportDiv.style.display = 'block';
-      listDiv.innerHTML = '<p style="font-size:0.8rem; padding:10px; opacity:0.6;">⌛ Fetching local data...</p>';
+      document.getElementById('report-loc').innerText = `LAT: ${lat.toFixed(3)} | LNG: ${lng.toFixed(3)}`;
+      listDiv.innerHTML = '<p style="padding:15px; text-align:center; font-size:0.8rem; color:#ffb7cc;">Loading data...</p>';
 
-      // Update Inspection Marker
-      if (activeMarker) activeMarker.setLatLng(e.latlng);
-      else activeMarker = L.marker(e.latlng, { 
-        icon: L.divIcon({ 
-          className: '', 
-          html: `<svg width="30" height="42" viewBox="0 0 30 42"><path d="M15 0C6.7 0 0 6.7 0 15C0 26.2 15 42 15 42C15 42 30 26.2 30 15C30 6.7 23.3 0 15 0Z" fill="#ff4d7a"/></svg>`, 
-          iconSize: [30, 42], iconAnchor: [15, 42] 
-        }) 
-      }).addTo(map);
+      // Use the pinkIcon for the marker
+      if (marker) {
+        marker.setLatLng(e.latlng);
+      } else {
+        marker = L.marker(e.latlng, { icon: pinkIcon }).addTo(map);
+      }
 
-      // Open-Meteo API Call
       const types = ['birch_pollen', 'grass_pollen', 'ragweed_pollen', 'alder_pollen', 'mugwort_pollen'];
+      const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=${types.join(',')}`;
+
       try {
-        const resp = await fetch(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=${types.join(',')}`);
+        const resp = await fetch(url);
         const data = await resp.json();
-        
+        if (!data.current) throw new Error();
+
         listDiv.innerHTML = '';
         types.forEach(type => {
           const val = data.current[type] || 0;
-          const label = type.split('_')[0].toUpperCase();
-          const cat = val > 80 ? {t:'High', c:'tag-high'} : val > 30 ? {t:'Mod', c:'tag-mod'} : {t:'Low', c:'tag-low'};
+          const { label, categoryClass, categoryText } = getPollenCategory(type, val);
           
-          listDiv.innerHTML += `
-            <div class="pollen-item">
-              <span class="pollen-label">${label} <span class="tag ${cat.c}">${cat.t}</span></span>
-              <span class="pollen-val">${Math.round(val)} <small style="font-size:0.6rem; opacity:0.5;">gr/m³</small></span>
-            </div>`;
+          const item = document.createElement('div');
+          item.className = 'pollen-item';
+          item.innerHTML = `
+            <div>
+              <span class="pollen-label">${label}</span>
+              <span class="tag ${categoryClass}">${categoryText}</span>
+            </div>
+            <span class="pollen-val">${Math.round(val)}</span>
+          `;
+          listDiv.appendChild(item);
         });
-      } catch (err) { listDiv.innerHTML = '<p style="color:#ef5350; font-size:0.8rem;">Data unavailable for this region.</p>'; }
-    }
-
-    function toggleDrawingMode() {
-      isDrawingMode = !isDrawingMode;
-      const btn = document.getElementById('drawAreaBtn');
-      btn.textContent = isDrawingMode ? "Tap Map to Place Area" : "Draw Area & Review";
-      btn.style.background = isDrawingMode ? "#333" : "#ff4d7a";
-
-      if (isDrawingMode) {
-        map.once('click', (e) => {
-          drawingCircle = L.circle(e.latlng, { radius: 2500, color: '#ff4d7a', fillOpacity: 0.3, weight: 2 }).addTo(map);
-          openReviewModal(e.latlng);
-          toggleDrawingMode();
-        });
+      } catch (err) {
+        listDiv.innerHTML = '<p style="color:#ef5350; font-size:0.8rem; text-align:center; padding:10px;">⚠️ No data available.</p>';
       }
     }
 
-    async function loadReviews() {
-      // Clear existing review markers
-      reviewMarkers.forEach(m => map.removeLayer(m));
-      reviewMarkers = [];
-
-      try {
-        const res = await fetch('/api/reviews');
-        const data = await res.json();
-        if (data.success) {
-          data.reviews.forEach(r => {
-            const m = L.marker([r.center_lat, r.center_lng], {
-              icon: L.icon({ 
-                url: "{{ url_for('static', filename='point.png') }}", 
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
-              })
-            }).addTo(map);
-            m.bindPopup(`<div style="color:#0a1a1f; font-family:Inter; font-size:0.85rem;"><b>User Review:</b><br>${r.review_text}</div>`);
-            reviewMarkers.push(m);
-          });
-        }
-      } catch (e) { console.error("Could not load past reviews."); }
-    }
-
-    function openReviewModal(latlng) {
-      document.getElementById('area-summary').innerText = `Lat: ${latlng.lat.toFixed(3)} | Lng: ${latlng.lng.toFixed(3)}`;
-      document.getElementById('review-modal').style.display = 'flex';
-      window.currentLatlng = latlng;
-    }
-
-    function closeReviewModal() {
-      document.getElementById('review-modal').style.display = 'none';
-      if (drawingCircle) map.removeLayer(drawingCircle);
-      document.getElementById('rev-text').value = '';
-    }
-
-    async function submitReview() {
-      const text = document.getElementById('rev-text').value;
-      if (!text) return alert("Please enter a review.");
-
-      const payload = {
-        centerLat: window.currentLatlng.lat, 
-        centerLng: window.currentLatlng.lng,
-        radiusKm: 2.5, 
-        reviewText: text
+    function getPollenCategory(type, val) {
+      const labels = {
+        birch_pollen: "🌳 Birch",
+        grass_pollen: "🌿 Grass",
+        ragweed_pollen: "🌼 Ragweed",
+        alder_pollen: "🌲 Alder",
+        mugwort_pollen: "🌱 Mugwort"
       };
-
-      try {
-        const res = await fetch('/api/reviews', { 
-          method: 'POST', 
-          headers: {'Content-Type': 'application/json'}, 
-          body: JSON.stringify(payload) 
-        });
-        const result = await res.json();
-        if (result.success) {
-          closeReviewModal();
-          loadReviews(); // Refresh markers to show the new one
-        }
-      } catch (err) { alert("Error saving review."); }
+      let categoryClass = 'tag-low';
+      let categoryText = 'Low';
+      if (val > 30 && val <= 80) {
+        categoryClass = 'tag-mod';
+        categoryText = 'Mod';
+      } else if (val > 80) {
+        categoryClass = 'tag-high';
+        categoryText = 'High';
+      }
+      return { label: labels[type], categoryClass, categoryText };
     }
 
     window.onload = initMap;
