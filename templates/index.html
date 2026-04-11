@@ -3,213 +3,538 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Anthoscope • Pollen Inspector</title>
-  
-  <link rel="icon" type="image/x-icon" href="static/anthologo-neg.ico">
-  
+  <title>Anthoscope</title>
+
+  <link rel="shortcut icon" href="/static/anthoscope-logo1.ico">
+  <link rel="icon" type="image/x-icon" href="/static/anthoscope-logo1.ico">
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-  
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: 'Inter', sans-serif; 
-      height: 100vh; 
-      background: #0a1a1f; 
-      color: white; 
-      overflow: hidden; 
+    :root {
+      --pink: #ff4d7a;
+      --pink-dim: rgba(255, 77, 122, 0.15);
+      --pink-glow: rgba(255, 77, 122, 0.35);
+      --bg: #060e12;
+      --surface: rgba(10, 20, 28, 0.92);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e8edf0;
+      --muted: rgba(232, 237, 240, 0.45);
     }
 
-    /* Pinkish Map Design */
-    #map { 
-      height: 100%; 
-      width: 100%; 
-      z-index: 1; 
-      background: #1a0a14;
-      filter: hue-rotate(300deg) brightness(1.2) saturate(1.8) contrast(1.1);
+    * {
+      cursor: url("/static/cursor.png"), auto !important;
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
     }
-    
-    /* Logo: Large, No Tile Background, Top Left */
+
+    body {
+      font-family: 'Syne', sans-serif;
+      height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    /* ── Map ── */
+    #map {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      filter: hue-rotate(300deg) brightness(0.95) saturate(1.4);
+    }
+
+    /* ── Logo ── */
     #logo-container {
       position: absolute;
-      top: 25px;
+      top: 24px;
       left: 20px;
-      width: 300px;
+      width: 260px;
       z-index: 1000;
       pointer-events: none;
     }
-    
     #logo-container img {
       width: 100%;
       height: auto;
       display: block;
+      filter: drop-shadow(0 0 12px var(--pink-glow));
     }
 
-    /* Glass-card design */
+    /* ── Glass card base ── */
     .glass-card {
-      background: rgba(15, 25, 35, 0.9); 
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-radius: 20px; 
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); 
-      z-index: 1000; 
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow:
+        0 0 0 1px rgba(255,77,122,0.08) inset,
+        0 16px 40px rgba(0, 0, 0, 0.55);
+      z-index: 1000;
       position: absolute;
     }
-    
-    /* Spacing between Logo and Data Tile */
+
+    /* ── Pollen report panel ── */
     #pollen-report {
-      top: 150px; /* Space added between logo and tile */
-      left: 20px; 
-      width: 300px; 
-      padding: 20px;
-      display: none; 
-      transition: all 0.3s ease;
+      top: 136px;
+      left: 20px;
+      width: 280px;
+      padding: 18px 20px;
+      display: none;
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #report-loc {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--pink);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
     }
 
     .pollen-item {
-      display: flex; 
-      justify-content: space-between; 
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      padding: 10px 0; 
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
     }
-    .pollen-item:last-child { border: none; }
-    
-    .pollen-label { font-weight: 600; font-size: 0.9rem; }
-    .pollen-val { font-family: monospace; font-size: 1rem; color: #ffb7cc; }
-    
-    /* Category Tags */
-    .tag {
-      padding: 2px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
-      text-transform: uppercase; margin-left: 10px;
-    }
-    .tag-low { background: #c8e6c9; color: #1b5e20; }
-    .tag-mod { background: #fff9c4; color: #f57f17; }
-    .tag-high { background: #ef5350; color: #fff; }
+    .pollen-item:last-child { border-bottom: none; }
 
-    .hint { 
-      position: absolute; 
-      bottom: 30px; 
-      left: 50%; 
-      transform: translateX(-50%); 
-      background: rgba(0,0,0,0.6); 
-      padding: 10px 25px; 
-      border-radius: 30px; 
-      font-size: 0.85rem; 
-      z-index: 1000; 
-      pointer-events: none;
-      color: #ffb7cc;
-      border: 1px solid rgba(255, 77, 122, 0.2);
+    .pollen-label {
+      font-weight: 700;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
+
+    .pollen-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      color: #ffb7cc;
+    }
+
+    .tag {
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .tag-low  { background: rgba(76,175,80,0.2);  color: #81c784; }
+    .tag-mod  { background: rgba(255,193,7,0.2);  color: #ffd54f; }
+    .tag-high { background: rgba(239,83,80,0.25); color: #ef9a9a; }
+
+    .loading-msg {
+      font-size: 0.78rem;
+      padding: 8px 0;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    /* ── Draw button ── */
+    #drawAreaBtn {
+      position: absolute;
+      bottom: 28px;
+      left: 20px;
+      z-index: 1000;
+      width: 260px;
+      padding: 14px 20px;
+      background: var(--pink);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.88rem;
+      letter-spacing: 0.5px;
+      box-shadow: 0 4px 20px var(--pink-glow);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+    }
+    #drawAreaBtn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 28px var(--pink-glow);
+    }
+    #drawAreaBtn:active { transform: translateY(0); }
+    #drawAreaBtn.active-draw {
+      background: #222d33;
+      box-shadow: 0 0 0 2px var(--pink);
+      color: var(--pink);
+    }
+
+    /* ── Hint ── */
+    .hint {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 25, 35, 0.8);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 10px 24px;
+      border-radius: 30px;
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--pink);
+      z-index: 1000;
+      pointer-events: none;
+      letter-spacing: 0.5px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      animation: fadeIn 0.5s ease;
+    }
+
+    /* ── Review modal ── */
+    #review-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(4px);
+      animation: fadeIn 0.2s ease;
+    }
+    #review-modal.visible { display: flex; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    .modal-content {
+      background: #0f1e26;
+      padding: 28px;
+      border-radius: 20px;
+      width: 90%;
+      max-width: 400px;
+      border: 1px solid var(--pink);
+      box-shadow: 0 0 60px rgba(255,77,122,0.2);
+      animation: popUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    @keyframes popUp {
+      from { transform: scale(0.92); opacity: 0; }
+      to   { transform: scale(1);    opacity: 1; }
+    }
+
+    .modal-content h2 {
+      color: var(--pink);
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+    }
+
+    .modal-content p {
+      font-size: 0.75rem;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+      margin-bottom: 14px;
+    }
+
+    .modal-content textarea {
+      width: 100%;
+      height: 100px;
+      padding: 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .modal-content textarea:focus { border-color: var(--pink); }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .btn-cancel {
+      flex: 1;
+      padding: 12px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+    .btn-cancel:hover { background: rgba(255,255,255,0.1); }
+
+    .btn-submit {
+      flex: 1;
+      padding: 12px;
+      background: var(--pink);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 14px var(--pink-glow);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px var(--pink-glow);
+    }
+
+    /* ── Leaflet popup tweak ── */
+    .leaflet-popup-content-wrapper {
+      background: #0f1e26 !important;
+      border: 1px solid var(--pink) !important;
+      color: var(--text) !important;
+      font-family: 'Syne', sans-serif !important;
+      border-radius: 10px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-popup-tip { background: #0f1e26 !important; }
   </style>
 </head>
 <body>
 
+  <!-- Logo -->
   <div id="logo-container">
-    <img src="static/anthologo_neg.png" alt="Anthoscope">
+    <img src="{{ url_for('static', filename='images/anthologo_neg.png') }}" alt="Anthoscope">
   </div>
 
   <div id="pollen-report" class="glass-card">
-    <h2 id="report-loc" style="font-size: 0.8rem; color: #ff4d7a; margin-bottom: 15px; font-weight: 700;">LOCATION DETAILS</h2>
+    <h2 id="report-loc">LOCAL POLLEN DATA</h2>
     <div id="pollen-list"></div>
-    <p style="font-size: 0.6rem; color: #888; margin-top: 15px;">Source: Open-Meteo Air Quality (CAMS)</p>
   </div>
 
-  <div class="hint">📍 Tap anywhere on the map to inspect pollen levels</div>
+  <div class="hint">📍 Tap anywhere on the map to inspect local pollen levels</div>
+
+  <button id="drawAreaBtn">Draw Area &amp; Review</button>
 
   <div id="map"></div>
 
-  <script>
-    let map, marker;
+  <div id="review-modal">
+    <div class="modal-content">
+      <h2>Submit Allergy Review</h2>
+      <p id="area-summary"></p>
+      <textarea id="rev-text" placeholder="Describe the pollen impact in this area…"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeReviewModal()">Cancel</button>
+        <button class="btn-submit" onclick="submitReview()">Submit</button>
+      </div>
+    </div>
+  </div>
 
-    // Custom Pink Marker Icon
-    const pinkIcon = L.divIcon({
-      className: 'custom-pink-pin',
-      html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0ZM15 20.25C12.1005 20.25 9.75 17.8995 9.75 15C9.75 12.1005 12.1005 9.75 15 9.75C17.8995 9.75 20.25 12.1005 20.25 15C20.25 17.8995 17.8995 20.25 15 20.25Z" fill="#ff4d7a"/>
-             </svg>`,
-      iconSize: [30, 42],
-      iconAnchor: [15, 42]
-    });
+  <script>
+    let map, activeMarker, drawingCircle;
+    let isDrawingMode = false;
+    let reviewMarkers = [];
+
+    const POLLEN_TYPES = [
+      'birch_pollen',
+      'grass_pollen',
+      'ragweed_pollen',
+      'alder_pollen',
+      'mugwort_pollen'
+    ];
+
+    function getCategory(val) {
+      if (val > 80) return { label: 'High', cls: 'tag-high' };
+      if (val > 30) return { label: 'Mod',  cls: 'tag-mod'  };
+      return              { label: 'Low',  cls: 'tag-low'  };
+    }
+
+    function pinSVG() {
+      return `<svg width="30" height="42" viewBox="0 0 30 42" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 0C6.7 0 0 6.7 0 15C0 26.2 15 42 15 42C15 42 30 26.2 30 15C30 6.7 23.3 0 15 0Z" fill="#ff4d7a"/>
+        <circle cx="15" cy="15" r="6" fill="white" fill-opacity="0.9"/>
+      </svg>`;
+    }
 
     function initMap() {
-      map = L.map('map', { 
-        zoomControl: false,
-        attributionControl: false 
-      }).setView([48.85, 2.35], 5);
-      
+      map = L.map('map', { zoomControl: false }).setView([48.85, 2.35], 5);
+
       L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+        subdomains: 'abcd',
         maxZoom: 19
       }).addTo(map);
 
       map.on('click', onMapClick);
+
+      // Attach draw button — element is guaranteed to exist here
+      document.getElementById('drawAreaBtn').addEventListener('click', toggleDrawingMode);
+
+      loadReviews();
     }
 
     async function onMapClick(e) {
+      if (isDrawingMode) return;
+
       const { lat, lng } = e.latlng;
       const reportDiv = document.getElementById('pollen-report');
-      const listDiv = document.getElementById('pollen-list');
-      
-      reportDiv.style.display = 'block';
-      document.getElementById('report-loc').innerText = `LAT: ${lat.toFixed(3)} | LNG: ${lng.toFixed(3)}`;
-      listDiv.innerHTML = '<p style="padding:15px; text-align:center; font-size:0.8rem; color:#ffb7cc;">Loading data...</p>';
+      const listDiv   = document.getElementById('pollen-list');
 
-      // Use the pinkIcon for the marker
-      if (marker) {
-        marker.setLatLng(e.latlng);
+      reportDiv.style.display = 'block';
+      listDiv.innerHTML = '<p class="loading-msg">⌛ Fetching local data…</p>';
+
+      if (activeMarker) {
+        activeMarker.setLatLng(e.latlng);
       } else {
-        marker = L.marker(e.latlng, { icon: pinkIcon }).addTo(map);
+        activeMarker = L.marker(e.latlng, {
+          icon: L.divIcon({
+            className: '',
+            html: pinSVG(),
+            iconSize: [30, 42],
+            iconAnchor: [15, 42]
+          })
+        }).addTo(map);
       }
 
-      const types = ['birch_pollen', 'grass_pollen', 'ragweed_pollen', 'alder_pollen', 'mugwort_pollen'];
-      const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=${types.join(',')}`;
-
       try {
+        const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}&current=${POLLEN_TYPES.join(',')}`;
         const resp = await fetch(url);
+        if (!resp.ok) throw new Error('API error');
         const data = await resp.json();
-        if (!data.current) throw new Error();
 
         listDiv.innerHTML = '';
-        types.forEach(type => {
-          const val = data.current[type] || 0;
-          const { label, categoryClass, categoryText } = getPollenCategory(type, val);
-          
-          const item = document.createElement('div');
-          item.className = 'pollen-item';
-          item.innerHTML = `
-            <div>
-              <span class="pollen-label">${label}</span>
-              <span class="tag ${categoryClass}">${categoryText}</span>
-            </div>
-            <span class="pollen-val">${Math.round(val)}</span>
-          `;
-          listDiv.appendChild(item);
+        POLLEN_TYPES.forEach(type => {
+          const val   = data.current?.[type] ?? 0;
+          const name  = type.split('_')[0].toUpperCase();
+          const { label, cls } = getCategory(val);
+          listDiv.innerHTML += `
+            <div class="pollen-item">
+              <span class="pollen-label">
+                ${name}
+                <span class="tag ${cls}">${label}</span>
+              </span>
+              <span class="pollen-val">${Math.round(val)}</span>
+            </div>`;
         });
       } catch (err) {
-        listDiv.innerHTML = '<p style="color:#ef5350; font-size:0.8rem; text-align:center; padding:10px;">⚠️ No data available.</p>';
+        listDiv.innerHTML = '<p class="loading-msg">⚠ Could not fetch data.</p>';
       }
     }
 
-    function getPollenCategory(type, val) {
-      const labels = {
-        birch_pollen: "🌳 Birch",
-        grass_pollen: "🌿 Grass",
-        ragweed_pollen: "🌼 Ragweed",
-        alder_pollen: "🌲 Alder",
-        mugwort_pollen: "🌱 Mugwort"
-      };
-      let categoryClass = 'tag-low';
-      let categoryText = 'Low';
-      if (val > 30 && val <= 80) {
-        categoryClass = 'tag-mod';
-        categoryText = 'Mod';
-      } else if (val > 80) {
-        categoryClass = 'tag-high';
-        categoryText = 'High';
+    async function loadReviews() {
+      reviewMarkers.forEach(m => map.removeLayer(m));
+      reviewMarkers = [];
+
+      try {
+        const res  = await fetch('/api/reviews');
+        const data = await res.json();
+
+        if (data.success && Array.isArray(data.reviews)) {
+          data.reviews.forEach(r => {
+            const m = L.marker([r.center_lat, r.center_lng], {
+              icon: L.icon({
+                iconUrl: "/static/point.png",
+                iconSize:   [40, 40],
+                iconAnchor: [20, 20]
+              })
+            }).addTo(map);
+
+            m.bindPopup(`<b>Review</b><br>${r.review_text}`);
+            reviewMarkers.push(m);
+          });
+        }
+      } catch (e) {
+        console.error('Could not load reviews:', e);
       }
-      return { label: labels[type], categoryClass, categoryText };
+    }
+
+    function toggleDrawingMode() {
+      isDrawingMode = !isDrawingMode;
+      const btn = document.getElementById('drawAreaBtn');
+
+      if (isDrawingMode) {
+        btn.textContent = 'Tap map to place area';
+        btn.classList.add('active-draw');
+
+        // Temporarily remove the regular click handler so it doesn't fire
+        map.off('click', onMapClick);
+
+        map.once('click', (e) => {
+          drawingCircle = L.circle(e.latlng, {
+            radius: 2500,
+            color: '#ff4d7a',
+            fillOpacity: 0.2,
+            weight: 2
+          }).addTo(map);
+
+          openReviewModal(e.latlng);
+          isDrawingMode = false;
+          btn.textContent = 'Draw Area & Review';
+          btn.classList.remove('active-draw');
+        });
+      } else {
+        // Cancelled before placing — restore regular click
+        btn.textContent = 'Draw Area & Review';
+        btn.classList.remove('active-draw');
+        map.off('click');
+        map.on('click', onMapClick);
+      }
+    }
+
+    function openReviewModal(latlng) {
+      document.getElementById('area-summary').textContent =
+        `Lat: ${latlng.lat.toFixed(4)}  |  Lng: ${latlng.lng.toFixed(4)}`;
+      document.getElementById('rev-text').value = '';
+      document.getElementById('review-modal').style.display = 'flex';
+      window.currentLatlng = latlng;
+    }
+
+    function closeReviewModal() {
+      document.getElementById('review-modal').style.display = 'none';
+      if (drawingCircle) {
+        map.removeLayer(drawingCircle);
+        drawingCircle = null;
+      }
+      // Re-attach regular click handler after closing modal
+      map.off('click');
+      map.on('click', onMapClick);
+    }
+
+    async function submitReview() {
+      const reviewText = document.getElementById('rev-text').value.trim();
+      if (!reviewText) return;
+
+      const payload = {
+        centerLat:  window.currentLatlng.lat,
+        centerLng:  window.currentLatlng.lng,
+        radiusKm:   2.5,
+        reviewText
+      };
+
+      try {
+        const res = await fetch('/api/reviews', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(payload)
+        });
+        const result = await res.json();
+        if (result.success) {
+          closeReviewModal();
+          loadReviews();
+        } else {
+          console.error('Server error:', result.error);
+        }
+      } catch (e) {
+        console.error('Submit failed:', e);
+      }
     }
 
     window.onload = initMap;
